@@ -432,6 +432,11 @@ extern const char *    machine_get_internal_name(void);
 extern const char *    machine_get_nvr_name(void);
 extern int             machine_get_machine_from_internal_name(const char *s);
 extern void            machine_init(void);
+
+/* Front panel turbo switch, for machines whose chipset reads one. */
+extern volatile int    machine_turbo_switch;
+extern void            machine_set_turbo_switch_present(int present);
+extern int             machine_has_turbo_switch(void);
 #ifdef EMU_DEVICE_H
 extern const device_t *machine_get_kbc_device(int m);
 extern const device_t *machine_get_kbd_device(int m);

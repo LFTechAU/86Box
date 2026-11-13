@@ -138,11 +138,30 @@ machine_init_ex(int m)
     return ret;
 }
 
+/* Front panel turbo switch: 1 is turbo. The user interface sets it and the
+   chipset reads it, so it only needs to be a plain flag. */
+volatile int machine_turbo_switch = 1;
+
+static int turbo_switch_present = 0;
+
+void
+machine_set_turbo_switch_present(int present)
+{
+    turbo_switch_present = present;
+}
+
+int
+machine_has_turbo_switch(void)
+{
+    return turbo_switch_present;
+}
+
 void
 machine_init(void)
 {
     bios_only            = 0;
     cpu_mem_extra_cycles = 0;
+    turbo_switch_present = 0;
 
     machine_set_p1_default(machines[machine].kbc_p1);
     machine_set_ps2();

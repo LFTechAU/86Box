@@ -220,6 +220,24 @@ MainWindow::MainWindow(QWidget *parent)
     dynarecMenu = new QMenu(this);
     dynarecMenu->addAction(ui->actionForce_interpretation);
     status->setDynarecMenu(dynarecMenu);
+
+    /* Front panel turbo switch, shown only on machines that have one. */
+    auto *turboAction = new QAction(tr("&Turbo"), this);
+    turboAction->setCheckable(true);
+    turboAction->setChecked(machine_turbo_switch);
+    turboAction->setVisible(false);
+    {
+        const auto acts = ui->menuAction->actions();
+        const int  idx  = acts.indexOf(ui->actionPause);
+        ui->menuAction->insertAction(((idx >= 0) && ((idx + 1) < acts.size())) ? acts[idx + 1] : nullptr, turboAction);
+    }
+    connect(turboAction, &QAction::toggled, this, [](bool on) {
+        machine_turbo_switch = on ? 1 : 0;
+    });
+    connect(ui->menuAction, &QMenu::aboutToShow, this, [turboAction]() {
+        turboAction->setVisible(machine_has_turbo_switch() != 0);
+        turboAction->setChecked(machine_turbo_switch != 0);
+    });
     ui->actionMute_Unmute->setText(sound_muted ? tr("&Unmute") : tr("&Mute"));
     ui->stackedWidget->setMouseTracking(true);
     statusBar()->setVisible(!hide_status_bar);

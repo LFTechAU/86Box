@@ -71,6 +71,10 @@ typedef struct sis_85c4xx_t {
     uint8_t *     cache_sram;
     uint32_t      cache_sram_mask;
     mem_mapping_t cache_sram_mapping;
+
+    /* 85C460/461 de-turbo: the chipset holds the CPU off the bus for 4 or
+       8 us out of every 12 us. */
+    pc_timer_t    deturbo_timer;
 } sis_85c4xx_t;
 
 static uint8_t ram_4xx[64] = { 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00,
@@ -647,6 +651,29 @@ sis_85c46x_cache_sizing(sis_85c4xx_t *dev, int enable)
     flushmmucache();
 }
 
+/* SiS 85C460 datasheet, Turbo Switch: "When the de-turbo function is turned
+   on, system performs 1/3 or 2/3 speed". Register 57h bit 1 is software
+   de-turbo (the AMI BIOS sets it on Ctrl+Alt+minus and clears it on
+   Ctrl+Alt+plus), register 53h bit 0 set means ignore the front panel turbo
+   switch, and register 58h bit 4 picks a hold of 4 us or 8 us out of every
+   12 us. The timer always runs so that it also picks up the switch, which
+   the user interface changes from another thread. */
+static void
+sis_85c46x_deturbo_timer(void *priv)
+{
+    sis_85c4xx_t *dev    = (sis_85c4xx_t *) priv;
+    int           active = (dev->regs[0x07] & 0x02) ||
+                           (!(dev->regs[0x03] & 0x01) && !machine_turbo_switch);
+
+    if (active) {
+        double hold_us = (dev->regs[0x08] & 0x10) ? 8.0 : 4.0;
+
+        sub_cycles((int) ((hold_us * (double) cpu_s->rspeed) / 1000000.0));
+        timer_advance_u64(&dev->deturbo_timer, (uint64_t) (12.0 * TIMER_USEC));
+    } else
+        timer_advance_u64(&dev->deturbo_timer, (uint64_t) (1000.0 * TIMER_USEC));
+}
+
 static void
 sis_85c4xx_out(uint16_t port, uint8_t val, void *priv)
 {
@@ -938,6 +965,11 @@ sis_85c4xx_close(void *priv)
     if (dev->is_471)
         smram_del(dev->smram);
 
+    if (!dev->is_471 && (dev->reg_base == 0x50)) {
+        timer_disable(&dev->deturbo_timer);
+        machine_set_turbo_switch_present(0);
+    }
+
     free(dev->cache_sram);
     free(dev);
 }
@@ -987,6 +1019,12 @@ sis_85c4xx_init(const device_t *info)
                             NULL, MEM_MAPPING_INTERNAL, dev);
             mem_mapping_disable(&dev->cache_sram_mapping);
         }
+    }
+
+    if (!dev->is_471 && (dev->reg_base == 0x50)) {
+        timer_add(&dev->deturbo_timer, sis_85c46x_deturbo_timer, dev, 0);
+        timer_set_delay_u64(&dev->deturbo_timer, (uint64_t) (1000.0 * TIMER_USEC));
+        machine_set_turbo_switch_present(1);
     }
 
     io_sethandler(0x0022, 0x0002,
