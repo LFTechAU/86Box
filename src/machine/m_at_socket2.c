@@ -394,14 +394,25 @@ static const device_config_t soyo461_config[] = {
     },
     {
         .name        = "dram_extra",
-        .description = "DRAM speed with cache off",
+        .description = "Extra DRAM wait with cache off",
         .type        = CONFIG_SELECTION,
-        .default_int = 8,
+        .default_int = 12,
         .selection   = {
-            { .description = "Like a real early 486", .value = 8 },
-            { .description = "In between",            .value = 4 },
-            { .description = "Chipset datasheet",     .value = 0 },
-            { .description = ""                              }
+            { .description = "None, chipset datasheet (~36 ms per tick)", .value = 0 },
+            { .description = "+2 clocks (~50 ms per tick at 33 MHz)", .value = 2 },
+            { .description = "+4 clocks (~60 ms per tick at 33 MHz)", .value = 4 },
+            { .description = "+6 clocks (~70 ms per tick at 33 MHz)", .value = 6 },
+            { .description = "+8 clocks (~85 ms per tick at 33 MHz)", .value = 8 },
+            { .description = "+10 clocks (~95 ms per tick at 33 MHz)", .value = 10 },
+            { .description = "+12 clocks (~110 ms per tick at 33 MHz)", .value = 12 },
+            { .description = "+14 clocks (~120 ms per tick at 33 MHz)", .value = 14 },
+            { .description = "+16 clocks (~130 ms per tick at 33 MHz)", .value = 16 },
+            { .description = "+20 clocks (~155 ms per tick at 33 MHz)", .value = 20 },
+            { .description = "+24 clocks (~180 ms per tick at 33 MHz)", .value = 24 },
+            { .description = "+32 clocks (~230 ms per tick at 33 MHz)", .value = 32 },
+            { .description = "+48 clocks (~325 ms per tick at 33 MHz)", .value = 48 },
+            { .description = "+64 clocks (~420 ms per tick at 33 MHz)", .value = 64 },
+            { .description = "" }
         }
     },
     { .name = "", .description = "", .type = CONFIG_END }
