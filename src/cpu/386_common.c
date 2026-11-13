@@ -557,8 +557,15 @@ prefetch_run(int instr_cycles, int bytes, int modrm, int reads, int reads_l, int
 {
     int mem_cycles = reads * cpu_cycles_read + reads_l * cpu_cycles_read_l + writes * cpu_cycles_write + writes_l * cpu_cycles_write_l;
 
-    if (instr_cycles < mem_cycles)
+    if (instr_cycles < mem_cycles) {
+        /* On a 486 with its internal cache off, every memory access is a bus
+           cycle, so an instruction whose bus cycles take longer than its
+           execution (such as REP STOS or REP SCAS on slow DRAM) is held up
+           by the bus. The opcode has only charged its execution time. */
+        if (is486 && !cpu_cache_int_enabled)
+            cycles -= (mem_cycles - instr_cycles);
         instr_cycles = mem_cycles;
+    }
 
     prefetch_bytes -= prefetch_prefixes;
     prefetch_bytes -= bytes;
