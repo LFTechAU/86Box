@@ -377,6 +377,39 @@ machine_at_auvacam_init(const machine_t *model)
     return ret;
 }
 
+static const device_config_t soyo461_config[] = {
+    // clang-format off
+    {
+        .name        = "cache_size",
+        .description = "External cache",
+        .type        = CONFIG_SELECTION,
+        .default_int = 3,
+        .selection   = {
+            { .description = "None",   .value = -1 },
+            { .description = "64 KB",  .value =  1 },
+            { .description = "128 KB", .value =  2 },
+            { .description = "256 KB", .value =  3 },
+            { .description = ""                    }
+        }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t soyo461_device = {
+    .name          = "SOYO 486 VESA",
+    .internal_name = "soyo461",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = soyo461_config
+};
+
 int
 machine_at_soyo461_init(const machine_t *model)
 {
@@ -390,7 +423,15 @@ machine_at_soyo461_init(const machine_t *model)
 
     machine_at_common_init(model);
 
-    device_add(&sis_85c461_device);
+    /* SiS 85C461 register 51h bits 5:4 are the external cache size. Store
+       the selected code in bits 18:16 of the device local value and set bit
+       24 to say that the board has cache SRAM. */
+    int cache_size_code = machine_get_config_int("cache_size");
+    if (cache_size_code >= 0) {
+        uintptr_t sis_params = ((uintptr_t) 1 << 24) | ((uintptr_t) cache_size_code << 16);
+        device_add_params(&sis_85c461_device, (void *) sis_params);
+    } else
+        device_add(&sis_85c461_device);
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 

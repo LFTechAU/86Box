@@ -847,6 +847,9 @@ extern int             machine_at_spc7500p_init(const machine_t *);
 extern int             machine_at_auvacam_init(const machine_t *);
 extern int             machine_at_decpclpv_init(const machine_t *);
 extern int             machine_at_dell466np_init(const machine_t *);
+#ifdef EMU_DEVICE_H
+extern const device_t  soyo461_device;
+#endif
 extern int             machine_at_soyo461_init(const machine_t *);
 extern int             machine_at_valuepoint433_init(const machine_t *);
 

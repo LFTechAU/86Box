@@ -66,6 +66,11 @@ typedef struct sis_85c4xx_t {
     ram_bank_t    ram_banks[8];
     smram_t *     smram;
     port_92_t *   port_92;
+
+    /* 85C460/461 external cache data SRAM, for the cache sizing mode. */
+    uint8_t *     cache_sram;
+    uint32_t      cache_sram_mask;
+    mem_mapping_t cache_sram_mapping;
 } sis_85c4xx_t;
 
 static uint8_t ram_4xx[64] = { 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00,
@@ -580,6 +585,68 @@ sis_85c471_banks_recalc(sis_85c4xx_t *dev)
     flushmmucache_nopc();
 }
 
+/* With register 57h bit 0 (Cache Sizing Enable) set, the 85C460/461 forces
+   every cycle to be a cache hit, so memory reads and writes go to the cache
+   data SRAM, which wraps around at its size. The BIOS sizes the cache by
+   writing a pattern and looking for where it reappears. */
+static uint8_t
+sis_85c46x_cache_sram_read(uint32_t addr, void *priv)
+{
+    const sis_85c4xx_t *dev = (sis_85c4xx_t *) priv;
+
+    return dev->cache_sram[addr & dev->cache_sram_mask];
+}
+
+static uint16_t
+sis_85c46x_cache_sram_readw(uint32_t addr, void *priv)
+{
+    return sis_85c46x_cache_sram_read(addr, priv) |
+           (sis_85c46x_cache_sram_read(addr + 1, priv) << 8);
+}
+
+static uint32_t
+sis_85c46x_cache_sram_readl(uint32_t addr, void *priv)
+{
+    return sis_85c46x_cache_sram_readw(addr, priv) |
+           (sis_85c46x_cache_sram_readw(addr + 2, priv) << 16);
+}
+
+static void
+sis_85c46x_cache_sram_write(uint32_t addr, uint8_t val, void *priv)
+{
+    const sis_85c4xx_t *dev = (sis_85c4xx_t *) priv;
+
+    dev->cache_sram[addr & dev->cache_sram_mask] = val;
+}
+
+static void
+sis_85c46x_cache_sram_writew(uint32_t addr, uint16_t val, void *priv)
+{
+    sis_85c46x_cache_sram_write(addr, val & 0xff, priv);
+    sis_85c46x_cache_sram_write(addr + 1, val >> 8, priv);
+}
+
+static void
+sis_85c46x_cache_sram_writel(uint32_t addr, uint32_t val, void *priv)
+{
+    sis_85c46x_cache_sram_writew(addr, val & 0xffff, priv);
+    sis_85c46x_cache_sram_writew(addr + 2, val >> 16, priv);
+}
+
+static void
+sis_85c46x_cache_sizing(sis_85c4xx_t *dev, int enable)
+{
+    if (dev->cache_sram == NULL)
+        return;
+
+    if (enable)
+        mem_mapping_enable(&dev->cache_sram_mapping);
+    else
+        mem_mapping_disable(&dev->cache_sram_mapping);
+
+    flushmmucache();
+}
+
 static void
 sis_85c4xx_out(uint16_t port, uint8_t val, void *priv)
 {
@@ -621,6 +688,11 @@ sis_85c4xx_out(uint16_t port, uint8_t val, void *priv)
                             sis_85c4xx_recalcmapping(dev);
                         if ((rel_reg == 0x08) && dev->is_471)
                             flushmmucache();
+                        break;
+
+                    case 0x07:
+                        if (!dev->is_471 && (valxor & 0x01))
+                            sis_85c46x_cache_sizing(dev, val & 0x01);
                         break;
 
                     case 0x09:
@@ -771,6 +843,8 @@ sis_85c4xx_reset(void *priv)
 
     memset(dev->regs, 0x00, sizeof(dev->regs));
 
+    sis_85c46x_cache_sizing(dev, 0);
+
     if ((cpu_s != NULL) && (cpu_s->rspeed < 25000000))
         dev->regs[0x08] = 0x80;
 
@@ -864,6 +938,7 @@ sis_85c4xx_close(void *priv)
     if (dev->is_471)
         smram_del(dev->smram);
 
+    free(dev->cache_sram);
     free(dev);
 }
 
@@ -892,8 +967,27 @@ sis_85c4xx_init(const device_t *info)
                             NULL, MEM_MAPPING_INTERNAL, &(dev->ram_banks[i]));
             mem_mapping_disable(&dev->ram_banks[i].mapping);
         }
-    } else
+    } else {
         dev->reg_last = dev->reg_base + 0x11;
+
+        /* On the 85C460/461, the force cache size flag means that the board
+           has cache SRAM; the code is the register 51h bits 5:4 size, from
+           32 KB (0) to 256 KB (3). */
+        if (dev->force_cache_size) {
+            uint32_t sram_size = 0x00008000 << (dev->cache_size_code & 0x03);
+
+            dev->cache_sram      = (uint8_t *) calloc(1, sram_size);
+            dev->cache_sram_mask = sram_size - 1;
+
+            mem_mapping_add(&dev->cache_sram_mapping, 0x00000000, 0x000a0000,
+                            sis_85c46x_cache_sram_read, sis_85c46x_cache_sram_readw,
+                            sis_85c46x_cache_sram_readl,
+                            sis_85c46x_cache_sram_write, sis_85c46x_cache_sram_writew,
+                            sis_85c46x_cache_sram_writel,
+                            NULL, MEM_MAPPING_INTERNAL, dev);
+            mem_mapping_disable(&dev->cache_sram_mapping);
+        }
+    }
 
     io_sethandler(0x0022, 0x0002,
                   sis_85c4xx_in, NULL, NULL, sis_85c4xx_out, NULL, NULL, dev);
