@@ -392,6 +392,18 @@ static const device_config_t soyo461_config[] = {
             { .description = ""                    }
         }
     },
+    {
+        .name        = "dram_extra",
+        .description = "DRAM speed with cache off",
+        .type        = CONFIG_SELECTION,
+        .default_int = 8,
+        .selection   = {
+            { .description = "Like a real early 486", .value = 8 },
+            { .description = "In between",            .value = 4 },
+            { .description = "Chipset datasheet",     .value = 0 },
+            { .description = ""                              }
+        }
+    },
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -432,6 +444,11 @@ machine_at_soyo461_init(const machine_t *model)
         device_add_params(&sis_85c461_device, (void *) sis_params);
     } else
         device_add(&sis_85c461_device);
+
+    /* Extra clocks per memory bus cycle while the CPU cache is off, so the
+       POST memory count runs at the speed of a real early 486 board. */
+    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 

@@ -141,7 +141,8 @@ machine_init_ex(int m)
 void
 machine_init(void)
 {
-    bios_only = 0;
+    bios_only            = 0;
+    cpu_mem_extra_cycles = 0;
 
     machine_set_p1_default(machines[machine].kbc_p1);
     machine_set_ps2();

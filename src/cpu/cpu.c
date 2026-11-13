@@ -193,6 +193,9 @@ int cpu_mem_prefetch_cycles;
 int cpu_rom_prefetch_cycles;
 int cpu_mca_bus;
 int cpu_waitstates;
+/* Extra CPU clocks added to every uncached memory bus cycle, set by machines
+   whose DRAM is slower than the CPU table timing assumes. */
+int cpu_mem_extra_cycles;
 int io_waitstates; /* Extra cycles added to IN/OUT instruction timing (x86_ops_io.h) -
                        cpu_waitstates only ever throttles memory bus cycles; this covers
                        I/O port cycles, which real ISA-bus hardware paces at a fixed bus
@@ -5293,6 +5296,14 @@ cpu_update_waitstates(void)
             cpu_cycles_read_l   = (cpu_16bitbus ? 2 : 1) * cpu_s->mem_read_cycles;
             cpu_cycles_write    = cpu_s->mem_write_cycles;
             cpu_cycles_write_l  = (cpu_16bitbus ? 2 : 1) * cpu_s->mem_write_cycles;
+        }
+
+        if (!cpu_cache_int_enabled && !cpu_cache_ext_enabled && cpu_mem_extra_cycles) {
+            cpu_prefetch_cycles += cpu_mem_extra_cycles;
+            cpu_cycles_read += cpu_mem_extra_cycles;
+            cpu_cycles_read_l += (cpu_16bitbus ? 2 : 1) * cpu_mem_extra_cycles;
+            cpu_cycles_write += cpu_mem_extra_cycles;
+            cpu_cycles_write_l += (cpu_16bitbus ? 2 : 1) * cpu_mem_extra_cycles;
         }
 
         if (is486)

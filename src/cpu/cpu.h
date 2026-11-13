@@ -779,6 +779,7 @@ extern int cpu_rom_prefetch_cycles;
    reaches before an instruction runs. */
 extern int cpu_mca_bus;
 extern int cpu_waitstates;
+extern int cpu_mem_extra_cycles;
 extern int io_waitstates;
 extern int reg_op_waitstates;
 extern int cpu_old_paging;
