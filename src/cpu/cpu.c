@@ -5299,11 +5299,15 @@ cpu_update_waitstates(void)
         }
 
         if (!cpu_cache_int_enabled && !cpu_cache_ext_enabled && cpu_mem_extra_cycles) {
-            cpu_prefetch_cycles += cpu_mem_extra_cycles;
-            cpu_cycles_read += cpu_mem_extra_cycles;
-            cpu_cycles_read_l += (cpu_16bitbus ? 2 : 1) * cpu_mem_extra_cycles;
-            cpu_cycles_write += cpu_mem_extra_cycles;
-            cpu_cycles_write_l += (cpu_16bitbus ? 2 : 1) * cpu_mem_extra_cycles;
+            /* The setting is in bus clocks; scale it to CPU clocks so a
+               clock-doubled or tripled CPU waits the same real time. */
+            int extra = (int) (cpu_mem_extra_cycles * ((cpu_s->multi > 1.0) ? cpu_s->multi : 1.0) + 0.5);
+
+            cpu_prefetch_cycles += extra;
+            cpu_cycles_read += extra;
+            cpu_cycles_read_l += (cpu_16bitbus ? 2 : 1) * extra;
+            cpu_cycles_write += extra;
+            cpu_cycles_write_l += (cpu_16bitbus ? 2 : 1) * extra;
         }
 
         if (is486)
