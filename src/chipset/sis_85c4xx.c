@@ -420,6 +420,14 @@ sis_85c4xx_recalcremap(sis_85c4xx_t *dev)
             mem_remap_top(0);
         else
             mem_remap_top(-256);
+    } else if (dev->reg_base == 0x50) {
+        /* 85C460/461: A0000-BFFFF and D0000-EFFFF are relocated to the top of
+           1, 2, 4, 6 or 8 MB of DRAM when D and E segment shadowing is off. */
+        if (((mem_size == 1024) || (mem_size == 2048) || (mem_size == 4096) ||
+             (mem_size == 6144) || (mem_size == 8192)) && !(dev->shadowed & 0x3c))
+            mem_remap_top(-256);
+        else
+            mem_remap_top(0);
     }
 }
 

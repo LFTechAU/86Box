@@ -11388,6 +11388,54 @@ const machine_t machines[] = {
         .net_device               = NULL,
         .aliases                  = { "" }
     },
+    /* Has AMIKey F KBC firmware (BIOS ID string ends in -F). Board had no onboard I/O; a multi-I/O card provided FDC/IDE/ports. */
+    {
+        .name              = "[SiS 461] SOYO 486 VESA",
+        .internal_name     = "soyo461",
+        .type              = MACHINE_TYPE_SOCKET2,
+        .chipset           = MACHINE_CHIPSET_SIS_461,
+        .init              = machine_at_soyo461_init,
+        .p1_handler        = machine_generic_p1_handler,
+        .gpio_handler      = NULL,
+        .available_flag    = MACHINE_AVAILABLE,
+        .gpio_acpi_handler = NULL,
+        .cpu               = {
+            .package     = CPU_PKG_SOCKET3,
+            .block       = CPU_BLOCK_NONE,
+            .min_bus     = 20000000,
+            .max_bus     = 50000000,
+            .min_voltage = 5000,
+            .max_voltage = 5000,
+            .min_multi   = 0,
+            .max_multi   = 0
+        },
+        .bus_flags = MACHINE_VLB,
+        .flags     = MACHINE_FLAGS_NONE,
+        .ram       = {
+            .min  = 1024,
+            .max  = 32768,
+            .step = 1024
+        },
+        .nvrmask                  = 127,
+        .jumpered_ecp_dma         = 0,
+        .default_jumpered_ecp_dma = -1,
+        .kbc_device               = &kbc_at_device,
+        .kbc_params               = KBC_VEN_AMI | 0x00004600,
+        .nvr_device               = &nvr_at_device,
+        .nvr_params               = NVR_AT,
+        .sio_device               = NULL,
+        .sio_params               = 0x00000000,
+        .kbc_p1                   = 0x00000cf0,
+        .gpio                     = 0xffffffff,
+        .gpio_acpi                = 0xffffffff,
+        .device                   = NULL,
+        .kbd_device               = NULL,
+        .fdc_device               = NULL,
+        .vid_device               = NULL,
+        .snd_device               = NULL,
+        .net_device               = NULL,
+        .aliases                  = { "" }
+    },
     /* Has a VLSI VL82C114 Combination I/O which holds the KBC. */
     {
         .name              = "[VLSI 82C480] IBM PS/1 model 2133",

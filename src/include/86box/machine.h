@@ -847,6 +847,7 @@ extern int             machine_at_spc7500p_init(const machine_t *);
 extern int             machine_at_auvacam_init(const machine_t *);
 extern int             machine_at_decpclpv_init(const machine_t *);
 extern int             machine_at_dell466np_init(const machine_t *);
+extern int             machine_at_soyo461_init(const machine_t *);
 extern int             machine_at_valuepoint433_init(const machine_t *);
 
 /* VLSI 82C480 */
