@@ -62,6 +62,12 @@ typedef struct opti391_t {
 
     uint8_t index;
     uint8_t regs[256];
+
+    /* 82C391 register 28h bits 1:0 report the cache size (16, 32, 64 or
+       128 KB), which the board sets. Bit 2 of force_cache_size says that a
+       size was given. */
+    uint8_t force_cache_size;
+    uint8_t cache_size_code;
 } opti391_t;
 
 static void
@@ -285,8 +291,11 @@ opti391_read(uint16_t addr, void *priv)
     if (addr == 0x24) {
         if ((dev->index <= 0x01) && (dev->type < 2))
             ret = dev->regs[dev->index + 0x10];
-        else if ((dev->index >= dev->min_reg) && (dev->index <= dev->max_reg))
+        else if ((dev->index >= dev->min_reg) && (dev->index <= dev->max_reg)) {
             ret = dev->regs[dev->index - dev->reg_base];
+            if (dev->force_cache_size && (dev->type == 2) && (dev->index == 0x28))
+                ret = (ret & 0xfc) | (dev->cache_size_code & 0x03);
+        }
 
         dev->index = 0xff;
     }
@@ -312,9 +321,11 @@ opti391_init(const device_t *info)
     io_sethandler(0x0022, 0x0001, opti391_read, NULL, NULL, opti391_write, NULL, NULL, dev);
     io_sethandler(0x0024, 0x0001, opti391_read, NULL, NULL, opti391_write, NULL, NULL, dev);
 
-    dev->type = info->local;
+    dev->type             = info->local & 0xff;
+    dev->force_cache_size = (info->local >> 24) & 0x01;
+    dev->cache_size_code  = (info->local >> 16) & 0x03;
 
-    if (info->local == 2) {
+    if (dev->type == 2) {
         dev->reg_base   = 0x20;
         dev->min_reg    = 0x20;
         dev->max_reg    = 0x2b;
@@ -335,7 +346,7 @@ opti391_init(const device_t *info)
 
         dev->regs[0x01] = 0x01;
         dev->regs[0x02] = 0xe0;
-        if (info->local == 1)
+        if (dev->type == 1)
             /* Guess due to no OPTi 48x datasheet. */
             dev->regs[0x04] = 0x07;
         else
@@ -343,7 +354,7 @@ opti391_init(const device_t *info)
         dev->regs[0x05] = 0x60;
         dev->regs[0x06] = 0x10;
         dev->regs[0x07] = 0x50;
-        if (info->local == 1) {
+        if (dev->type == 1) {
             /* Guess due to no OPTi 48x datasheet. */
             dev->regs[0x09] = 0x80; /* Non-Cacheable Block 1 */
             dev->regs[0x0b] = 0x80; /* Non-Cacheable Block 2 */

@@ -413,6 +413,38 @@ machine_at_dataexpert386wb_init(const machine_t *model)
 
 /* DataExpert OPTi-291WB: AMI 12/12/91 "OPTX 291" BIOS. The BIOS programs
    the chipset the same way as the OPTi 82C391, which 86Box emulates. */
+static const device_config_t opti291wb_config[] = {
+    // clang-format off
+    {
+        .name        = "cache_size",
+        .description = "External cache",
+        .type        = CONFIG_SELECTION,
+        .default_int = 2,
+        .selection   = {
+            { .description = "32 KB",  .value = 1 },
+            { .description = "64 KB",  .value = 2 },
+            { .description = "128 KB", .value = 3 },
+            { .description = ""                   }
+        }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t opti291wb_device = {
+    .name          = "DataExpert OPTi-291WB",
+    .internal_name = "opti291wb",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = opti291wb_config
+};
+
 int
 machine_at_opti291wb_init(const machine_t *model)
 {
@@ -426,7 +458,10 @@ machine_at_opti291wb_init(const machine_t *model)
 
     machine_at_common_init(model);
 
-    device_add(&opti391_device);
+    /* Local value 2 is the 82C391; bit 24 and bits 17:16 force the cache
+       size that register 28h reports. */
+    device_add_params(&opti391_device,
+                      (void *) (uintptr_t) (2 | (1 << 24) | ((machine_get_config_int("cache_size") & 0x03) << 16)));
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 
