@@ -411,6 +411,31 @@ machine_at_dataexpert386wb_init(const machine_t *model)
     return ret;
 }
 
+/* DataExpert OPTi-291WB: AMI 12/12/91 "OPTX 291" BIOS. The BIOS programs
+   the chipset the same way as the OPTi 82C391, which 86Box emulates. */
+int
+machine_at_opti291wb_init(const machine_t *model)
+{
+    int ret;
+
+    ret = bios_load_linear("roms/machines/opti291wb/121291.bin",
+                           0x000f0000, 65536, 0);
+
+    if (bios_only || !ret)
+        return ret;
+
+    machine_at_common_init(model);
+
+    device_add(&opti391_device);
+
+    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+
+    if (fdc_current[0] == FDC_INTERNAL)
+        device_add(&fdc_at_device);
+
+    return ret;
+}
+
 /* OPTi 495SLC */
 int
 machine_at_opti495_init(const machine_t *model)
