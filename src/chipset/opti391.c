@@ -66,6 +66,10 @@ typedef struct opti391_t {
     /* 82C391 register 28h bits 1:0 report the cache size (16, 32, 64 or
        128 KB), which the board sets. Bit 2 of force_cache_size says that a
        size was given. */
+    /* Register 20h bit 0 is "fast reset enable" on the 82C391, not a reset
+       pulse. Boards whose BIOS sets it from the CPU clock (0 above 33 MHz,
+       then 1 later in POST) would otherwise reset in a loop. */
+    uint8_t no_bit0_reset;
     uint8_t force_cache_size;
     uint8_t cache_size_code;
 } opti391_t;
@@ -213,7 +217,8 @@ opti391_write(uint16_t addr, uint8_t val, void *priv)
                 case 0x00:
                     if (dev->type == 2) {
                         reset_on_hlt = !!(val & 0x02);
-                        if (!(dev->regs[dev->index - dev->reg_base] & 0x01) && (val & 0x01)) {
+                        if (!dev->no_bit0_reset &&
+                            !(dev->regs[dev->index - dev->reg_base] & 0x01) && (val & 0x01)) {
                             softresetx86(); /* Pulse reset! */
                             cpu_set_edx();
                             flushmmucache();
@@ -323,6 +328,7 @@ opti391_init(const device_t *info)
 
     dev->type             = info->local & 0xff;
     dev->force_cache_size = (info->local >> 24) & 0x01;
+    dev->no_bit0_reset    = (info->local >> 25) & 0x01;
     dev->cache_size_code  = (info->local >> 16) & 0x03;
 
     if (dev->type == 2) {
