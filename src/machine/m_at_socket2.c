@@ -380,6 +380,17 @@ machine_at_auvacam_init(const machine_t *model)
 static const device_config_t soyo461_config[] = {
     // clang-format off
     {
+        .name        = "bios_newcpu",
+        .description = "BIOS",
+        .type        = CONFIG_SELECTION,
+        .default_int = 0,
+        .selection   = {
+            { .description = "AMI 08/08/93 (original)",              .value = 0 },
+            { .description = "AMI 08/08/93 + newer CPU names/speeds", .value = 1 },
+            { .description = ""                                                 }
+        }
+    },
+    {
         .name        = "cache_size",
         .description = "External cache",
         .type        = CONFIG_SELECTION,
@@ -442,7 +453,9 @@ machine_at_soyo461_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/soyo461/080893.bin",
+    ret = bios_load_linear(machine_get_config_int("bios_newcpu") ?
+                               "roms/machines/soyo461/080893-newcpu.bin" :
+                               "roms/machines/soyo461/080893.bin",
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
