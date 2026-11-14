@@ -427,6 +427,33 @@ static const device_config_t opti291wb_config[] = {
             { .description = ""                   }
         }
     },
+    {
+        .name        = "dram_extra",
+        .description = "Extra DRAM wait with cache off",
+        .type        = CONFIG_SELECTION,
+        .default_int = 5,
+        .selection   = {
+            { .description = "None, chipset timing", .value = 0 },
+            { .description = "+1 clocks", .value = 1 },
+            { .description = "+2 clocks", .value = 2 },
+            { .description = "+3 clocks", .value = 3 },
+            { .description = "+4 clocks", .value = 4 },
+            { .description = "+5 clocks, recommended", .value = 5 },
+            { .description = "+6 clocks", .value = 6 },
+            { .description = "+7 clocks", .value = 7 },
+            { .description = "+8 clocks", .value = 8 },
+            { .description = "+10 clocks", .value = 10 },
+            { .description = "+12 clocks", .value = 12 },
+            { .description = "+14 clocks", .value = 14 },
+            { .description = "+16 clocks", .value = 16 },
+            { .description = "+20 clocks", .value = 20 },
+            { .description = "+24 clocks", .value = 24 },
+            { .description = "+32 clocks", .value = 32 },
+            { .description = "+48 clocks", .value = 48 },
+            { .description = "+64 clocks", .value = 64 },
+            { .description = "" }
+        }
+    },
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -462,6 +489,11 @@ machine_at_opti291wb_init(const machine_t *model)
        size that register 28h reports. */
     device_add_params(&opti391_device,
                       (void *) (uintptr_t) (2 | (1 << 24) | ((machine_get_config_int("cache_size") & 0x03) << 16)));
+
+    /* Slows uncached DRAM accesses (such as the POST memory count) to the
+       pace of a real board's slower DRAM timing. */
+    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 

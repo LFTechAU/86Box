@@ -567,6 +567,11 @@ prefetch_run(int instr_cycles, int bytes, int modrm, int reads, int reads_l, int
         instr_cycles = mem_cycles;
     }
 
+    /* A 386 or 286 board with a "slower DRAM" setting (cpu_mem_extra_cycles)
+       waits that many extra bus clocks on every uncached access. */
+    if (!is486 && cpu_mem_extra_cycles && !cpu_cache_ext_enabled)
+        cycles -= cpu_mem_extra_cycles * (reads + reads_l + writes + writes_l);
+
     prefetch_bytes -= prefetch_prefixes;
     prefetch_bytes -= bytes;
     if (modrm != -1) {
