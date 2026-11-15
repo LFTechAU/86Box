@@ -3103,6 +3103,20 @@ tsc_msr_sync(void)
 #endif
     return 0;
 }
+/* The on-chip cache runs while CR0.CD is clear. On the IBM 386SLC, 486SLC
+   and Blue Lightning it also needs bit 7 (cache enable) of the Processor
+   Operation Register (MSR 1000h), which is clear after reset, so a BIOS or
+   utility that doesn't know the chip leaves the cache off. */
+int
+cpu_int_cache_on(void)
+{
+    if (!hascache || (cr0 & (1 << 30)))
+        return 0;
+    if ((cpu_s->cpu_type == CPU_IBM386SLC) || (cpu_s->cpu_type == CPU_IBM486SLC) ||
+        (cpu_s->cpu_type == CPU_IBM486BL))
+        return !!(msr.ibm_por & 0x80);
+    return 1;
+}
 
 void
 cpu_RDMSR(void)
@@ -4052,7 +4066,7 @@ cpu_WRMSR(void)
                 /* Processor Operation Register */
                 case 0x1000:
                     msr.ibm_por           = EAX & ((cpu_s->cpu_type > CPU_IBM386SLC) ? 0xffeff : 0xfeff);
-                    cpu_cache_int_enabled = (EAX & (1 << 7));
+                    cpu_cache_int_enabled = cpu_int_cache_on();
                     cpu_update_waitstates();
                     break;
                 /* Cache Region Control Register */

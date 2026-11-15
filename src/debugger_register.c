@@ -257,7 +257,7 @@ debugger_register_access(const char *name, uint32_t *val, uint32_t *seg_base, in
             if ((value & 1) && !(old & 1))
                 cpu_state.seg_cs.access &= 0x9f;
             cr0                   = value | (cpu_16bitbus ? 0x10 : 0);
-            cpu_cache_int_enabled = hascache && !(cr0 & (1U << 30));
+            cpu_cache_int_enabled = cpu_int_cache_on();
             if ((old ^ cr0) & (1U << 30)) {
                 cpu_update_waitstates();
                 cpu_car_update();

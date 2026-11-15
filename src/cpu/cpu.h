@@ -840,6 +840,7 @@ extern int cpu_has_feature(int feature);
 extern char *cpu_current_pc(char *bufp);
 
 extern void cpu_update_waitstates(void);
+extern int  cpu_int_cache_on(void);
 extern void cpu_set(void);
 extern void cpu_tr_reset(void);
 extern uint32_t cpu_tr_read(int reg);

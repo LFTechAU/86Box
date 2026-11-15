@@ -540,7 +540,7 @@ reset_common(int hard, int src)
         cr0 |= 0x10; /* ET is hardwired to 1 */
     /* The cache timing follows CD: INIT keeps it (above), and a CD of 0
        kept is a cache still on. */
-    cpu_cache_int_enabled = hascache && !(cr0 & (1 << 30));
+    cpu_cache_int_enabled = cpu_int_cache_on();
     cpu_update_waitstates();
     cr4              = 0;
     cpu_state.eflags = 0;

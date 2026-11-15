@@ -334,7 +334,7 @@ dynarec_mov_cr0(uint32_t rm)
     cr0 = val;
     if (cpu_16bitbus)
         cr0 |= 0x10;
-    if (hascache && !(cr0 & (1 << 30)))
+    if (cpu_int_cache_on())
         cpu_cache_int_enabled = 1;
     else
         cpu_cache_int_enabled = 0;
