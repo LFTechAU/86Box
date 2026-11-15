@@ -416,6 +416,17 @@ machine_at_dataexpert386wb_init(const machine_t *model)
 static const device_config_t opti291wb_config[] = {
     // clang-format off
     {
+        .name        = "bios_lftech",
+        .description = "BIOS",
+        .type        = CONFIG_SELECTION,
+        .default_int = 0,
+        .selection   = {
+            { .description = "AMI 12/12/91 (original)",  .value = 0 },
+            { .description = "LFTech LT-291WB Rev 1.0", .value = 1 },
+            { .description = ""                                    }
+        }
+    },
+    {
         .name        = "cache_size",
         .description = "External cache",
         .type        = CONFIG_SELECTION,
@@ -477,7 +488,9 @@ machine_at_opti291wb_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/opti291wb/121291.bin",
+    ret = bios_load_linear(machine_get_config_int("bios_lftech") ?
+                               "roms/machines/opti291wb/121291-lftech.bin" :
+                               "roms/machines/opti291wb/121291.bin",
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)

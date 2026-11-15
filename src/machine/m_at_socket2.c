@@ -387,6 +387,7 @@ static const device_config_t soyo461_config[] = {
         .selection   = {
             { .description = "AMI 08/08/93 (original)",              .value = 0 },
             { .description = "AMI 08/08/93 + newer CPU names/speeds", .value = 1 },
+            { .description = "LFTech LT-461V Rev 1.0 (newer CPU names/speeds)", .value = 2 },
             { .description = ""                                                 }
         }
     },
@@ -453,10 +454,16 @@ machine_at_soyo461_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear(machine_get_config_int("bios_newcpu") ?
-                               "roms/machines/soyo461/080893-newcpu.bin" :
-                               "roms/machines/soyo461/080893.bin",
-                           0x000f0000, 65536, 0);
+    static const char *soyo461_roms[] = {
+        "roms/machines/soyo461/080893.bin",
+        "roms/machines/soyo461/080893-newcpu.bin",
+        "roms/machines/soyo461/080893-lftech.bin"
+    };
+    int bios = machine_get_config_int("bios_newcpu");
+
+    if ((bios < 0) || (bios > 2))
+        bios = 0;
+    ret = bios_load_linear(soyo461_roms[bios], 0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
         return ret;
