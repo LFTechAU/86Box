@@ -568,9 +568,15 @@ prefetch_run(int instr_cycles, int bytes, int modrm, int reads, int reads_l, int
     }
 
     /* A 386 or 286 board with a "slower DRAM" setting (cpu_mem_extra_cycles)
-       waits that many extra bus clocks on every uncached access. */
-    if (!is486 && cpu_mem_extra_cycles && !cpu_cache_int_enabled && !cpu_cache_ext_enabled)
-        cycles -= cpu_mem_extra_cycles * (reads + reads_l + writes + writes_l);
+       waits that many extra bus clocks on every uncached access. The setting
+       is in bus clocks, so a clock-doubled or tripled CPU (Cyrix SRx2, IBM
+       SLC2/SLC3) waits the same real time, and a 32-bit access takes two
+       bus cycles on a 16-bit bus. */
+    if (!is486 && cpu_mem_extra_cycles && !cpu_cache_int_enabled && !cpu_cache_ext_enabled) {
+        int extra = (int) (cpu_mem_extra_cycles * ((cpu_s->multi > 1.0) ? cpu_s->multi : 1.0) + 0.5);
+
+        cycles -= extra * (reads + writes + (cpu_16bitbus ? 2 : 1) * (reads_l + writes_l));
+    }
 
     prefetch_bytes -= prefetch_prefixes;
     prefetch_bytes -= bytes;
