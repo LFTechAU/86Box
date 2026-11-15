@@ -72,6 +72,9 @@ typedef struct opti391_t {
     uint8_t no_bit0_reset;
     uint8_t force_cache_size;
     uint8_t cache_size_code;
+    /* Shadow RAM programmed through registers 23h-27h in the 82C291 layout
+       (bit 3 of local byte 3). */
+    uint8_t shadow_291;
 } opti391_t;
 
 static void
@@ -178,6 +181,39 @@ opti391_shadow_recalc(opti391_t *dev)
     opti391_recalcremap(dev);
 }
 
+/* Shadow RAM in the 82C291 register layout, which the DataExpert OPTi-291WB
+   BIOS uses: register 23h bit 6 reads F0000-FFFFF from ROM, registers 26h,
+   25h and 24h enable reads (high nibble) and writes (low nibble) of the
+   16 KB blocks at C0000, D0000 and E0000, and register 27h bits 4-7
+   write-protect the C, D, E and F segments. */
+static void
+opti391_shadow_recalc_291(opti391_t *dev)
+{
+    static const uint8_t reg[3] = { 0x06, 0x05, 0x04 };
+
+    shadowbios = shadowbios_write = 0;
+
+    mem_set_mem_state_both(0xf0000, 0x10000,
+                           ((dev->regs[0x03] & 0x40) ? MEM_READ_EXTANY : MEM_READ_INTERNAL) |
+                           ((dev->regs[0x07] & 0x80) ? MEM_WRITE_DISABLED : MEM_WRITE_INTERNAL));
+
+    for (uint8_t seg = 0; seg < 3; seg++) {
+        uint8_t r  = dev->regs[reg[seg]];
+        uint8_t wp = dev->regs[0x07] & (0x10 << seg);
+
+        for (uint8_t i = 0; i < 4; i++) {
+            uint32_t base = 0xc0000 + (seg << 16) + (i << 14);
+
+            mem_set_mem_state_both(base, 0x4000,
+                                   ((r & (0x10 << i)) ? MEM_READ_INTERNAL : MEM_READ_EXTANY) |
+                                   (wp ? MEM_WRITE_DISABLED :
+                                         ((r & (1 << i)) ? MEM_WRITE_INTERNAL : MEM_WRITE_EXTANY)));
+        }
+    }
+
+    flushmmucache();
+}
+
 static void
 opti391_write(uint16_t addr, uint8_t val, void *priv)
 {
@@ -210,6 +246,10 @@ opti391_write(uint16_t addr, uint8_t val, void *priv)
                     dev->regs[dev->index + 0x10] = val;
                     reset_on_hlt = !!(val & 0x02);
                     break;
+            } else if (dev->shadow_291 && (dev->index >= 0x22) && (dev->index <= 0x27)) {
+                dev->regs[dev->index - dev->reg_base] = val;
+                if (dev->index >= 0x23)
+                    opti391_shadow_recalc_291(dev);
             } else  switch (dev->index - dev->reg_base) {
                 default:
                     break;
@@ -330,6 +370,7 @@ opti391_init(const device_t *info)
     dev->force_cache_size = (info->local >> 24) & 0x01;
     dev->no_bit0_reset    = (info->local >> 25) & 0x01;
     dev->cache_size_code  = (info->local >> 16) & 0x03;
+    dev->shadow_291       = (info->local >> 27) & 0x01;
 
     if (dev->type == 2) {
         dev->reg_base   = 0x20;
@@ -376,7 +417,13 @@ opti391_init(const device_t *info)
 
     dev->old_start = 1024;
 
-    opti391_shadow_recalc(dev);
+    if (dev->shadow_291) {
+        /* 82C291 reset state: F segment read from ROM, writes to RAM. */
+        dev->regs[0x03] = 0x40;
+        dev->regs[0x04] = dev->regs[0x05] = dev->regs[0x06] = dev->regs[0x07] = 0x00;
+        opti391_shadow_recalc_291(dev);
+    } else
+        opti391_shadow_recalc(dev);
 
     return dev;
 }

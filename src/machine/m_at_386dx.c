@@ -512,10 +512,11 @@ machine_at_opti291wb_init(const machine_t *model)
     machine_at_common_init(model);
 
     /* Local value 2 is the 82C391; bit 24 and bits 17:16 force the cache
-       size that register 28h reports, and bit 25 makes register 20h bit 0
-       a plain setting rather than a reset pulse. */
+       size that register 28h reports, bit 25 makes register 20h bit 0
+       a plain setting rather than a reset pulse, and bit 27 selects the
+       82C291 shadow RAM registers (23h-27h) that this BIOS programs. */
     device_add_params(&opti391_device,
-                      (void *) (uintptr_t) (2 | (1 << 24) | (1 << 25) |
+                      (void *) (uintptr_t) (2 | (1 << 24) | (1 << 25) | (1 << 27) |
                                           ((machine_get_config_int("cache_size") & 0x03) << 16)));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
