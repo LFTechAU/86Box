@@ -49,12 +49,36 @@
 #include <86box/sound.h>
 
 /* CS4031 */
+static const device_config_t cs4031_config[] = {
+    // clang-format off
+    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-4031V Rev 1.0 (AMI)"),
+    MACHINE_DRAM_EXTRA_CONFIG(1),
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t cs4031_mach_device = {
+    .name          = "AMI 486 CS4031",
+    .internal_name = "cs4031",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = cs4031_config
+};
+
 int
 machine_at_cs4031_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/cs4031/CHIPS_1.AMI",
+    ret = bios_load_linear(machine_get_config_int("bios_lftech") ?
+                               "roms/machines/cs4031/CHIPS_1-lftech.bin" :
+                               "roms/machines/cs4031/CHIPS_1.AMI",
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
@@ -63,6 +87,11 @@ machine_at_cs4031_init(const machine_t *model)
     machine_at_common_init(model);
 
     device_add(&cs4031_device);
+
+    /* Slows uncached DRAM accesses (such as the POST memory count) to the
+       pace of a real board's slower DRAM timing. */
+    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 
@@ -343,12 +372,36 @@ machine_at_sis401_init(const machine_t *model)
 }
 
 /* SiS 460 */
+static const device_config_t av4_config[] = {
+    // clang-format off
+    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-460V Rev 1.0 (AMI)"),
+    MACHINE_DRAM_EXTRA_CONFIG(1),
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t av4_device = {
+    .name          = "ABIT AB-AV4",
+    .internal_name = "av4",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = av4_config
+};
+
 int
 machine_at_av4_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/av4/amibios_486dx_isa_bios_aa4025963.bin",
+    ret = bios_load_linear(machine_get_config_int("bios_lftech") ?
+                               "roms/machines/av4/av4-lftech.bin" :
+                               "roms/machines/av4/amibios_486dx_isa_bios_aa4025963.bin",
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
@@ -357,6 +410,11 @@ machine_at_av4_init(const machine_t *model)
     machine_at_common_init(model);
 
     device_add(&sis_85c460_device);
+
+    /* Slows uncached DRAM accesses (such as the POST memory count) to the
+       pace of a real board's slower DRAM timing. */
+    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 

@@ -310,12 +310,36 @@ machine_at_tandy4000_init(const machine_t *model)
 }
 
 /* ALi M1429 */
+static const device_config_t ecs386v_config[] = {
+    // clang-format off
+    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-386V Rev 1.0 (AMI)"),
+    MACHINE_DRAM_EXTRA_CONFIG(4),
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t ecs386v_device = {
+    .name          = "ECS Panda 386V",
+    .internal_name = "ecs386v",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = ecs386v_config
+};
+
 int
 machine_at_ecs386v_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/ecs386v/PANDA_386V.BIN",
+    ret = bios_load_linear(machine_get_config_int("bios_lftech") ?
+                               "roms/machines/ecs386v/PANDA_386V-lftech.bin" :
+                               "roms/machines/ecs386v/PANDA_386V.BIN",
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
@@ -324,6 +348,11 @@ machine_at_ecs386v_init(const machine_t *model)
     machine_at_common_init(model);
 
     device_add(&ali1429_device);
+
+    /* Slows uncached DRAM accesses (such as the POST memory count) to the
+       pace of a real board's slower DRAM timing. */
+    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 

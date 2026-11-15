@@ -169,12 +169,36 @@ machine_at_4gpv5_init(const machine_t *model)
 }
 
 /* Contaq 82C597 */
+static const device_config_t greenb_config[] = {
+    // clang-format off
+    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-597V Rev 1.0 (AMI)"),
+    MACHINE_DRAM_EXTRA_CONFIG(1),
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t greenb_device = {
+    .name          = "Visionex Green-B",
+    .internal_name = "greenb",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = greenb_config
+};
+
 int
 machine_at_greenb_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/greenb/4gpv31-ami-1993-8273517.bin",
+    ret = bios_load_linear(machine_get_config_int("bios_lftech") ?
+                               "roms/machines/greenb/4gpv31-lftech.bin" :
+                               "roms/machines/greenb/4gpv31-ami-1993-8273517.bin",
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
@@ -186,6 +210,11 @@ machine_at_greenb_init(const machine_t *model)
         device_add(&fdc_at_device);
 
     device_add(&contaq_82c597_device);
+
+    /* Slows uncached DRAM accesses (such as the POST memory count) to the
+       pace of a real board's slower DRAM timing. */
+    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 

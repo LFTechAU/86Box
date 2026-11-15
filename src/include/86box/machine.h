@@ -909,6 +909,54 @@ extern int             machine_at_vi15g_init(const machine_t *);
 #ifdef EMU_DEVICE_H
 extern const device_t  vli486sv2g_device;
 #endif
+
+#ifdef EMU_DEVICE_H
+/* LFTech: the original/LFTech BIOS choice and the "slower DRAM" setting
+   shared by the AMI Hi-Flex boards. The default for the DRAM setting is the
+   one that makes a 486DX-33 (or 386DX-33) count memory at the same pace as
+   the SOYO 486 VESA at +5. */
+#define MACHINE_LFTECH_BIOS_CONFIG(lftech_name)                                       \
+    {                                                                                 \
+        .name        = "bios_lftech",                                                 \
+        .description = "BIOS",                                                        \
+        .type        = CONFIG_SELECTION,                                              \
+        .default_int = 0,                                                             \
+        .selection   = { { .description = "AMI (original)", .value = 0 },             \
+                         { .description = lftech_name, .value = 1 },                  \
+                         { .description = "" } }                                      \
+    }
+#define MACHINE_DRAM_EXTRA_CONFIG(def)                                                \
+    {                                                                                 \
+        .name        = "dram_extra",                                                  \
+        .description = "Extra DRAM wait with cache off",                              \
+        .type        = CONFIG_SELECTION,                                              \
+        .default_int = def,                                                           \
+        .selection   = { { .description = "None, chipset timing", .value = 0 },       \
+                         { .description = "+1 clocks", .value = 1 },                  \
+                         { .description = "+2 clocks", .value = 2 },                  \
+                         { .description = "+3 clocks", .value = 3 },                  \
+                         { .description = "+4 clocks", .value = 4 },                  \
+                         { .description = "+5 clocks", .value = 5 },                  \
+                         { .description = "+6 clocks", .value = 6 },                  \
+                         { .description = "+7 clocks", .value = 7 },                  \
+                         { .description = "+8 clocks", .value = 8 },                  \
+                         { .description = "+10 clocks", .value = 10 },                \
+                         { .description = "+12 clocks", .value = 12 },                \
+                         { .description = "+14 clocks", .value = 14 },                \
+                         { .description = "+16 clocks", .value = 16 },                \
+                         { .description = "+20 clocks", .value = 20 },                \
+                         { .description = "+24 clocks", .value = 24 },                \
+                         { .description = "+32 clocks", .value = 32 },                \
+                         { .description = "+48 clocks", .value = 48 },                \
+                         { .description = "+64 clocks", .value = 64 },                \
+                         { .description = "" } }                                      \
+    }
+extern const device_t  av4_device;
+extern const device_t  ali1429_mach_device;
+extern const device_t  ecs386v_device;
+extern const device_t  greenb_device;
+extern const device_t  cs4031_mach_device;
+#endif
 extern int             machine_at_vli486sv2g_init(const machine_t *);
 extern int             machine_at_dvent4xx_init(const machine_t *);
 extern int             machine_at_dtk486_init(const machine_t *);

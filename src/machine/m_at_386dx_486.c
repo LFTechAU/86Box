@@ -130,9 +130,19 @@ static const device_config_t opti495_ami_config[] = {
                 .size          = 65536,
                 .files         = { "roms/machines/ami495/opt495sx.mr", "" }
             },
+            {
+                .name          = "LFTech LT-495SX Rev 1.0 (AMI)",
+                .internal_name = "lftech495",
+                .bios_type     = BIOS_NORMAL,
+                .files_no      = 1,
+                .local         = 0,
+                .size          = 65536,
+                .files         = { "roms/machines/ami495/opt495sx-lftech.ami", "" }
+            },
             { .files_no = 0 }
         },
     },
+    MACHINE_DRAM_EXTRA_CONFIG(1),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -168,6 +178,11 @@ machine_at_opti495_ami_init(const machine_t *model)
     machine_at_common_init(model);
 
     device_add(&opti495sx_device);
+
+    /* Slows uncached DRAM accesses (such as the POST memory count) to the
+       pace of a real board's slower DRAM timing. */
+    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 

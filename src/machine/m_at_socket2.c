@@ -151,18 +151,47 @@ machine_at_ali1429_common_init(const machine_t *model, int is_green)
         device_add(&fdc_at_device);
 }
 
+static const device_config_t ali1429_config[] = {
+    // clang-format off
+    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-1429V Rev 1.0 (AMI)"),
+    MACHINE_DRAM_EXTRA_CONFIG(1),
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t ali1429_mach_device = {
+    .name          = "Olystar LIL1429",
+    .internal_name = "ali1429",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = ali1429_config
+};
+
 int
 machine_at_ali1429_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/ali1429/ami486.BIN",
+    ret = bios_load_linear(machine_get_config_int("bios_lftech") ?
+                               "roms/machines/ali1429/ami486-lftech.bin" :
+                               "roms/machines/ali1429/ami486.BIN",
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
         return ret;
 
     machine_at_ali1429_common_init(model, 0);
+
+    /* Slows uncached DRAM accesses (such as the POST memory count) to the
+       pace of a real board's slower DRAM timing. */
+    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_update_waitstates();
 
     return ret;
 }
