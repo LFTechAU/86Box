@@ -159,6 +159,11 @@ typedef struct atkbc_t {
 
     void (*p2_write_hook)(void *priv, uint8_t old_p2, uint8_t new_p2);
     void *p2_priv;
+
+    /* AMI commands A2h/A3h (clear/set P22 and P23), which some boards wire
+       to a function such as the external cache enable. */
+    void (*ami_p22_p23_hook)(void *priv, int set);
+    void *ami_p22_p23_priv;
 } atkbc_t;
 
 /* Keyboard controller ports. */
@@ -1144,6 +1149,8 @@ write_cmd_ami(void *priv, uint8_t val)
             if (!(dev->misc_flags & FLAG_PS2)) {
                 kbc_at_log("ATkbc: AMI - clear KBC lines P22 and P23\n");
                 write_p2(dev, dev->p2 & 0xf3);
+                if (dev->ami_p22_p23_hook != NULL)
+                    dev->ami_p22_p23_hook(dev->ami_p22_p23_priv, 0);
                 kbc_delay_to_ob(dev, 0x00, 0, 0x00);
                 ret = 0;
             }
@@ -1153,6 +1160,8 @@ write_cmd_ami(void *priv, uint8_t val)
             if (!(dev->misc_flags & FLAG_PS2)) {
                 kbc_at_log("ATkbc: AMI - set KBC lines P22 and P23\n");
                 write_p2(dev, dev->p2 | 0x0c);
+                if (dev->ami_p22_p23_hook != NULL)
+                    dev->ami_p22_p23_hook(dev->ami_p22_p23_priv, 1);
                 kbc_delay_to_ob(dev, 0x00, 0, 0x00);
                 ret = 0;
             }
@@ -3028,6 +3037,15 @@ kbc_at_set_p2_write_hook(void *priv,
 
     dev->p2_write_hook = p2_write_hook;
     dev->p2_priv       = p2_priv;
+}
+
+void
+kbc_at_set_ami_p22_p23_hook(void *priv, void (*hook)(void *priv, int set), void *hook_priv)
+{
+    atkbc_t *dev = (atkbc_t *) priv;
+
+    dev->ami_p22_p23_hook = hook;
+    dev->ami_p22_p23_priv = hook_priv;
 }
 
 static void *

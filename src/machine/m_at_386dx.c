@@ -483,9 +483,22 @@ const device_t opti291wb_device = {
     .config        = opti291wb_config
 };
 
+/* The board's external cache is switched through keyboard controller lines
+   P22/P23: the BIOS turns it on with AMI KBC command A3h late in POST (after
+   the memory count) and off with A2h. The 82C391's own cache enable bit
+   (register 21h bit 4) is never set by this BIOS. */
+static void
+opti291wb_cache_hook(UNUSED(void *priv), int set)
+{
+    cpu_cache_ext_enabled = set;
+    cpu_update_waitstates();
+}
+
 int
 machine_at_opti291wb_init(const machine_t *model)
 {
+    void *kbc;
+
     int ret;
 
     ret = bios_load_linear(machine_get_config_int("bios_lftech") ?
@@ -510,7 +523,8 @@ machine_at_opti291wb_init(const machine_t *model)
     cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
     cpu_update_waitstates();
 
-    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+    kbc = device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+    kbc_at_set_ami_p22_p23_hook(kbc, opti291wb_cache_hook, NULL);
 
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);
