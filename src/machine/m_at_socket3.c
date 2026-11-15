@@ -475,6 +475,7 @@ static const device_config_t vli486sv2g_config[] = {
         .selection   = {
             { .description = "Award 04/02 (original)",                  .value = 0 },
             { .description = "AMI (SiS 471 BIOS from the Epox GXA486SG)", .value = 1 },
+            { .description = "LFTech LT-471V Rev 1.0 (AMI)",               .value = 2 },
             { .description = ""                                                   }
         }
     },
@@ -497,15 +498,19 @@ const device_t vli486sv2g_device = {
 };
 
 /* The AMI option is the Epox GXA486SG's SiS 471 BIOS: same chipset, and in
-   86Box the two boards are otherwise built the same way. */
+   86Box the two boards are otherwise built the same way. The LFTech option is
+   that BIOS with an LFTech sign-on and its hidden setup items shown. */
 int
 machine_at_vli486sv2g_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear(machine_get_config_int("bios_ami") ?
-                               "roms/machines/ami471/SIS471BE.AMI" :
-                               "roms/machines/vli486sv2g/0402.001",
+    static const char *roms[] = { "roms/machines/vli486sv2g/0402.001",
+                                  "roms/machines/ami471/SIS471BE.AMI",
+                                  "roms/machines/ami471/SIS471BE-lftech.bin" };
+    int bios = machine_get_config_int("bios_ami");
+
+    ret = bios_load_linear(roms[((bios >= 0) && (bios <= 2)) ? bios : 0],
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
