@@ -465,12 +465,47 @@ machine_at_vi15g_init(const machine_t *model)
     return ret;
 }
 
+static const device_config_t vli486sv2g_config[] = {
+    // clang-format off
+    {
+        .name        = "bios_ami",
+        .description = "BIOS",
+        .type        = CONFIG_SELECTION,
+        .default_int = 0,
+        .selection   = {
+            { .description = "Award 04/02 (original)",                  .value = 0 },
+            { .description = "AMI (SiS 471 BIOS from the Epox GXA486SG)", .value = 1 },
+            { .description = ""                                                   }
+        }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t vli486sv2g_device = {
+    .name          = "ASUS VL/I-486SV2GX4",
+    .internal_name = "vli486sv2g",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = vli486sv2g_config
+};
+
+/* The AMI option is the Epox GXA486SG's SiS 471 BIOS: same chipset, and in
+   86Box the two boards are otherwise built the same way. */
 int
 machine_at_vli486sv2g_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/vli486sv2g/0402.001",
+    ret = bios_load_linear(machine_get_config_int("bios_ami") ?
+                               "roms/machines/ami471/SIS471BE.AMI" :
+                               "roms/machines/vli486sv2g/0402.001",
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
