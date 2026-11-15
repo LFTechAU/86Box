@@ -836,6 +836,15 @@ sis_85c4xx_in(uint16_t port, void *priv)
     uint8_t       ret     = 0xff;
 
     switch (port) {
+        case 0x22:
+            /* The 85C471 reads back its index register. The AMI 471 BIOS
+               tests bit 0 of it to decide whether to run its Cyrix cache
+               setup, which sets CR0.NW with CD clear on any other CPU; a
+               real 486 takes a #GP there and POST hangs at code A1. */
+            if (dev->is_471)
+                ret = dev->cur_reg;
+            break;
+
         case 0x23:
             if (dev->is_471 && (dev->cur_reg == 0x1c))
                 ret = inb(0x70);
