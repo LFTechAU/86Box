@@ -15,6 +15,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <wchar.h>
 #define HAVE_STDARG_H
@@ -509,6 +510,19 @@ static const device_config_t vli486sv2g_config[] = {
         }
     },
     {
+        .name        = "cache_size",
+        .description = "External cache",
+        .type        = CONFIG_SELECTION,
+        .default_int = 3,
+        .selection   = {
+            { .description = "128 KB",  .value = 2 },
+            { .description = "256 KB",  .value = 3 },
+            { .description = "512 KB",  .value = 4 },
+            { .description = "1 MB",    .value = 5 },
+            { .description = "" }
+        }
+    },
+    {
         .name        = "dram_extra",
         .description = "Extra DRAM wait with cache off",
         .type        = CONFIG_SELECTION,
@@ -566,13 +580,41 @@ machine_at_vli486sv2g_init(const machine_t *model)
                                   "roms/machines/ami471/SIS471BE-lftech.bin" };
     int bios = machine_get_config_int("bios_ami");
 
-    ret = bios_load_linear(roms[((bios >= 0) && (bios <= 2)) ? bios : 0],
-                           0x000f0000, 65536, 0);
+    if ((bios < 0) || (bios > 2))
+        bios = 0;
+
+    ret = bios_load_linear(roms[bios], 0x000f0000, 65536, 0);
+
+    /* The LFTech BIOS has an extension ROM at E0000 (CPU names and clocks
+       for newer and 386-class CPUs). It is a separate image so that the
+       F000 BIOS stays 64 KB, which is what 386SX-class CPUs see mirrored at
+       FE0000. The chipset only decodes it during POST. */
+    if (ret && !bios_only && (bios == 2)) {
+        static rom_t lftech_ext;
+
+        if (lftech_ext.rom != NULL) {
+            free(lftech_ext.rom);
+            lftech_ext.rom = NULL;
+        }
+        if (rom_init(&lftech_ext, "roms/machines/ami471/SIS471BE-lftech-ext.bin",
+                     0x000e0000, 0x10000, 0xffff, 0,
+                     MEM_MAPPING_EXTERNAL | MEM_MAPPING_IS_ROM | MEM_MAPPING_ROMCS) != 0)
+            ret = 0;
+    }
 
     if (bios_only || !ret)
         return ret;
 
-    machine_at_sis_85c471_common_init(model);
+    machine_at_common_init(model);
+
+    if (fdc_current[0] == FDC_INTERNAL)
+        device_add(&fdc_at_device);
+
+    /* Force the selected external cache size (register 51h bits 6:4). */
+    device_add_params(&sis_85c471_device,
+                      (void *) (((uintptr_t) 1 << 24) |
+                                ((uintptr_t) ((bios == 2) ? 1 : 0) << 25) |
+                                ((uintptr_t) machine_get_config_int("cache_size") << 16)));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */

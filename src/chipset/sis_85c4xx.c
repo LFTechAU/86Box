@@ -59,6 +59,8 @@ typedef struct sis_85c4xx_t {
     uint8_t       smram_enabled;
     uint8_t       pad;
     uint8_t       force_cache_size;
+    uint8_t       post_romcs_e;   /* board ROM is 128 KB: decode E0000 during POST */
+    uint8_t       romcs_e_active;
     uint8_t       cache_size_code;
     uint8_t       regs[39];
     uint8_t       scratch[2];
@@ -337,6 +339,11 @@ sis_85c471_read_ramw(uint32_t addr, void *priv)
     uint32_t    rel = addr - dev->virt_base;
     uint16_t    ret = 0xffff;
 
+    /* An access that crosses a doubleword is two bus cycles, each with its
+       own row and column (a 386SX fetches code this way). */
+    if ((rel & 0x03) == 0x03)
+        return sis_85c471_read_ram(addr, priv) | (sis_85c471_read_ram(addr + 1, priv) << 8);
+
     uint32_t row = sis_85c471_set_row(dev, sis_85c471_get_row(dev, rel));
     uint32_t col = sis_85c471_set_col(dev, sis_85c471_get_col(dev, rel));
     uint32_t dw  = rel & 0x00000003;
@@ -356,6 +363,9 @@ sis_85c471_read_raml(uint32_t addr, void *priv)
     ram_bank_t *dev = (ram_bank_t *) priv;
     uint32_t    rel = addr - dev->virt_base;
     uint32_t    ret = 0xffffffff;
+
+    if (rel & 0x03)
+        return sis_85c471_read_ramw(addr, priv) | (sis_85c471_read_ramw(addr + 2, priv) << 16);
 
     uint32_t row = sis_85c471_set_row(dev, sis_85c471_get_row(dev, rel));
     uint32_t col = sis_85c471_set_col(dev, sis_85c471_get_col(dev, rel));
@@ -393,6 +403,12 @@ sis_85c471_write_ramw(uint32_t addr, uint16_t val, void *priv)
     ram_bank_t *dev = (ram_bank_t *) priv;
     uint32_t    rel = addr - dev->virt_base;
 
+
+    if ((rel & 0x03) == 0x03) {
+        sis_85c471_write_ram(addr, val & 0xff, priv);
+        sis_85c471_write_ram(addr + 1, val >> 8, priv);
+        return;
+    }
     uint32_t row = sis_85c471_set_row(dev, sis_85c471_get_row(dev, rel));
     uint32_t col = sis_85c471_set_col(dev, sis_85c471_get_col(dev, rel));
     uint32_t dw  = rel & 0x00000003;
@@ -410,6 +426,12 @@ sis_85c471_write_raml(uint32_t addr, uint32_t val, void *priv)
     ram_bank_t *dev = (ram_bank_t *) priv;
     uint32_t    rel = addr - dev->virt_base;
 
+
+    if (rel & 0x03) {
+        sis_85c471_write_ramw(addr, val & 0xffff, priv);
+        sis_85c471_write_ramw(addr + 2, val >> 16, priv);
+        return;
+    }
     uint32_t row = sis_85c471_set_row(dev, sis_85c471_get_row(dev, rel));
     uint32_t col = sis_85c471_set_col(dev, sis_85c471_get_col(dev, rel));
     uint32_t dw  = rel & 0x00000003;
@@ -452,6 +474,9 @@ sis_85c4xx_recalcmapping(sis_85c4xx_t *dev)
     uint8_t  cur_romcs;
 
     dev->shadowed = 0x00;
+
+    if (dev->romcs_e_active)
+        romcs |= 0x30;
 
     shadowbios       = 0;
     shadowbios_write = 0;
@@ -502,6 +527,20 @@ sis_85c4xx_recalcmapping(sis_85c4xx_t *dev)
         flushmmucache_nopc();
 
     sis_85c4xx_recalcremap(dev);
+}
+
+/* POST code 00h is the BIOS handing over to the boot loader: stop decoding
+   the E000 half of a 128 KB board ROM so that segment is free for UMBs. */
+static void
+sis_85c4xx_post_out(UNUSED(uint16_t port), uint8_t val, void *priv)
+{
+    sis_85c4xx_t *dev = (sis_85c4xx_t *) priv;
+
+    if (dev->romcs_e_active && (val == 0x00)) {
+        dev->romcs_e_active = 0;
+        dev->force_flush    = 1;
+        sis_85c4xx_recalcmapping(dev);
+    }
 }
 
 static void
@@ -884,6 +923,8 @@ sis_85c4xx_reset(void *priv)
 
     memset(dev->regs, 0x00, sizeof(dev->regs));
 
+    dev->romcs_e_active = dev->post_romcs_e;
+
     sis_85c46x_cache_sizing(dev, 0);
 
     if ((cpu_s != NULL) && (cpu_s->rspeed < 25000000))
@@ -996,6 +1037,7 @@ sis_85c4xx_init(const device_t *info)
     dev->is_471           = (info->local >> 8) & 0xff;
     dev->cache_size_code  = (info->local >> 16) & 0x07;
     dev->force_cache_size = (info->local >> 24) & 0x01;
+    dev->post_romcs_e     = (info->local >> 25) & 0x01;
 
     dev->reg_base = info->local & 0xff;
 
@@ -1046,6 +1088,10 @@ sis_85c4xx_init(const device_t *info)
 
     io_sethandler(0x00e1, 0x0002,
                   sis_85c4xx_in, NULL, NULL, sis_85c4xx_out, NULL, NULL, dev);
+
+    if (dev->post_romcs_e)
+        io_sethandler(0x0080, 0x0001,
+                      NULL, NULL, NULL, sis_85c4xx_post_out, NULL, NULL, dev);
 
     sis_85c4xx_reset(dev);
 
