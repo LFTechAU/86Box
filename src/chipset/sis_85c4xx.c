@@ -550,6 +550,8 @@ sis_85c471_banks_split(uint32_t *b_ex, uint32_t *banks)
 static void
 sis_85c471_banks_recalc(sis_85c4xx_t *dev)
 {
+    uint32_t ext_len;
+
     reg09 = dev->regs[0x09];
 
     for (uint8_t i = 0; i < 8; i++)
@@ -557,7 +559,10 @@ sis_85c471_banks_recalc(sis_85c4xx_t *dev)
 
     mem_mapping_disable(&ram_low_mapping);
     mem_mapping_disable(&ram_high_mapping);
-    mem_set_mem_state_both(1 << 20, 127 << 20, MEM_READ_EXTERNAL | MEM_WRITE_EXTERNAL);
+    /* A CPU with a 24-bit address bus (386SX-class) finds its reset vector
+       in the BIOS alias just below 16 MB, so leave that alone. */
+    ext_len = cpu_16bitbus ? (0x00fe0000 - (1 << 20)) : (127 << 20);
+    mem_set_mem_state_both(1 << 20, ext_len, MEM_READ_EXTERNAL | MEM_WRITE_EXTERNAL);
 
     if ((dev->regs[0x09] & 0x3f) == dev->ram_banks_val) {
         if (mem_size > 1024) {
@@ -583,7 +588,7 @@ sis_85c471_banks_recalc(sis_85c4xx_t *dev)
             size += b_ex[i];
         }
 
-        mem_set_mem_state_both(1 << 20, 127 << 20, MEM_READ_INTERNAL | MEM_WRITE_INTERNAL);
+        mem_set_mem_state_both(1 << 20, ext_len, MEM_READ_INTERNAL | MEM_WRITE_INTERNAL);
     }
 
     flushmmucache_nopc();
