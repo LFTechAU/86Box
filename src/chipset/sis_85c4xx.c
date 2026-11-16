@@ -24,6 +24,7 @@
 #include <86box/86box.h>
 #include "cpu.h"
 #include "x86.h"
+#include "x86seg.h"
 #include <86box/timer.h>
 #include <86box/io.h>
 #include <86box/device.h>
@@ -529,6 +530,45 @@ sis_85c4xx_recalcmapping(sis_85c4xx_t *dev)
     sis_85c4xx_recalcremap(dev);
 }
 
+/* A CPU reset (the keyboard controller's reset pulse, Ctrl+Alt+Del) does
+   not reset the chipset, but the BIOS runs its POST again and needs its
+   extension ROM at E0000. A CPU with a 24-bit address bus starts at F000:FFF0
+   with a base below 1 MB, so the reset vector does not depend on A20 (the
+   BIOS may reset with A20 off, which would put FFFFF0h at EFFFF0h in RAM). */
+static void
+sis_85c4xx_cpu_reset(void *priv)
+{
+    sis_85c4xx_t *dev = (sis_85c4xx_t *) priv;
+
+    if (!dev->romcs_e_active) {
+        dev->romcs_e_active = 1;
+        dev->force_flush    = 1;
+        sis_85c4xx_recalcmapping(dev);
+    }
+
+    if (cpu_16bitbus) {
+        if (is486)
+            loadcs(0xf000);
+        else
+            loadcs_2386(0xf000);
+        cpu_state.pc = 0xfff0;
+    }
+}
+
+static const device_t sis_85c4xx_cpu_reset_device = {
+    .name          = "SiS 85C471 CPU reset",
+    .internal_name = "sis_85c471_cpu_reset",
+    .flags         = DEVICE_SOFTRESET,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = sis_85c4xx_cpu_reset,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = NULL
+};
+
 /* POST code 00h is the BIOS handing over to the boot loader: stop decoding
    the E000 half of a 128 KB board ROM so that segment is free for UMBs. */
 static void
@@ -607,7 +647,7 @@ sis_85c471_banks_recalc(sis_85c4xx_t *dev)
         if (mem_size > 1024) {
             mem_mapping_enable(&ram_low_mapping);
             mem_mapping_enable(&ram_high_mapping);
-            mem_set_mem_state_both(1 << 20, (mem_size << 10) - (1 << 20),
+            mem_set_mem_state_both(1 << 20, MIN((mem_size << 10) - (1 << 20), ext_len),
                                    MEM_READ_INTERNAL | MEM_WRITE_INTERNAL);
         }
     } else {
@@ -1089,9 +1129,11 @@ sis_85c4xx_init(const device_t *info)
     io_sethandler(0x00e1, 0x0002,
                   sis_85c4xx_in, NULL, NULL, sis_85c4xx_out, NULL, NULL, dev);
 
-    if (dev->post_romcs_e)
+    if (dev->post_romcs_e) {
         io_sethandler(0x0080, 0x0001,
                       NULL, NULL, NULL, sis_85c4xx_post_out, NULL, NULL, dev);
+        device_add_ex(&sis_85c4xx_cpu_reset_device, dev);
+    }
 
     sis_85c4xx_reset(dev);
 
