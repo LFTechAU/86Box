@@ -131,7 +131,7 @@ static const device_config_t opti495_ami_config[] = {
                 .files         = { "roms/machines/ami495/opt495sx.mr", "" }
             },
             {
-                .name          = "LFTech LT-495SX Rev 1.0 (AMI)",
+                .name          = "AMI 06/06/92 by LFTech",
                 .internal_name = "lftech495",
                 .bios_type     = BIOS_NORMAL,
                 .files_no      = 1,

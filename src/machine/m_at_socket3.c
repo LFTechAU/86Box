@@ -172,7 +172,7 @@ machine_at_4gpv5_init(const machine_t *model)
 /* Contaq 82C597 */
 static const device_config_t greenb_config[] = {
     // clang-format off
-    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-597V Rev 1.0 (AMI)"),
+    MACHINE_LFTECH_BIOS_CONFIG("AMI 01/10/94 by LFTech"),
     MACHINE_DRAM_EXTRA_CONFIG(1),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -505,7 +505,7 @@ static const device_config_t vli486sv2g_config[] = {
         .selection   = {
             { .description = "Award 04/02 (original)",                  .value = 0 },
             { .description = "AMI (SiS 471 BIOS from the Epox GXA486SG)", .value = 1 },
-            { .description = "LFTech LT-471V Rev 1.0 (AMI)",               .value = 2 },
+            { .description = "AMI 08/08/93 by LFTech (newer CPU names/speeds)",.value = 2 },
             { .description = ""                                                   }
         }
     },

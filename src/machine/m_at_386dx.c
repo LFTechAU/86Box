@@ -312,7 +312,7 @@ machine_at_tandy4000_init(const machine_t *model)
 /* ALi M1429 */
 static const device_config_t ecs386v_config[] = {
     // clang-format off
-    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-386V Rev 1.0 (AMI)"),
+    MACHINE_LFTECH_BIOS_CONFIG("AMI 08/08/93 by LFTech"),
     MACHINE_DRAM_EXTRA_CONFIG(4),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -451,7 +451,7 @@ static const device_config_t opti291wb_config[] = {
         .default_int = 0,
         .selection   = {
             { .description = "AMI 12/12/91 (original)",  .value = 0 },
-            { .description = "LFTech LT-291WB Rev 1.0", .value = 1 },
+            { .description = "AMI 12/12/91 by LFTech", .value = 1 },
             { .description = ""                                    }
         }
     },

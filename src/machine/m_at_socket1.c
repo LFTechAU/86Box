@@ -51,7 +51,7 @@
 /* CS4031 */
 static const device_config_t cs4031_config[] = {
     // clang-format off
-    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-4031V Rev 1.0 (AMI)"),
+    MACHINE_LFTECH_BIOS_CONFIG("AMI 11/11/92 by LFTech"),
     MACHINE_DRAM_EXTRA_CONFIG(1),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -374,7 +374,7 @@ machine_at_sis401_init(const machine_t *model)
 /* SiS 460 */
 static const device_config_t av4_config[] = {
     // clang-format off
-    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-460V Rev 1.0 (AMI)"),
+    MACHINE_LFTECH_BIOS_CONFIG("AMI 06/06/92 by LFTech"),
     MACHINE_DRAM_EXTRA_CONFIG(1),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on

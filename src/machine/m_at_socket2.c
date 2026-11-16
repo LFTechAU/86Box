@@ -153,7 +153,7 @@ machine_at_ali1429_common_init(const machine_t *model, int is_green)
 
 static const device_config_t ali1429_config[] = {
     // clang-format off
-    MACHINE_LFTECH_BIOS_CONFIG("LFTech LT-1429V Rev 1.0 (AMI)"),
+    MACHINE_LFTECH_BIOS_CONFIG("AMI 04/04/93 by LFTech"),
     MACHINE_DRAM_EXTRA_CONFIG(1),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -416,7 +416,7 @@ static const device_config_t soyo461_config[] = {
         .selection   = {
             { .description = "AMI 08/08/93 (original)",              .value = 0 },
             { .description = "AMI 08/08/93 + newer CPU names/speeds", .value = 1 },
-            { .description = "LFTech LT-461V Rev 1.0 (newer CPU names/speeds)", .value = 2 },
+            { .description = "AMI 08/08/93 by LFTech (newer CPU names/speeds)", .value = 2 },
             { .description = ""                                                 }
         }
     },
