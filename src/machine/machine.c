@@ -144,6 +144,18 @@ volatile int machine_turbo_switch = 1;
 
 static int turbo_switch_present = 0;
 
+volatile int machine_speed_pct = 100;
+
+/* The CPU clock in whole MHz, as a front panel display shows it (66 for a
+   66.67 MHz part). */
+int
+machine_get_cpu_mhz(void)
+{
+    const CPU *c = cpu_s;
+
+    return (c != NULL) ? (int) (c->rspeed / 1000000) : 0;
+}
+
 void
 machine_set_turbo_switch_present(int present)
 {
@@ -162,6 +174,7 @@ machine_init(void)
     bios_only            = 0;
     cpu_mem_extra_cycles = 0;
     turbo_switch_present = 0;
+    machine_speed_pct    = 100;
 
     machine_set_p1_default(machines[machine].kbc_p1);
     machine_set_ps2();

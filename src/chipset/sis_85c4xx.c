@@ -749,6 +749,8 @@ sis_85c46x_deturbo_timer(void *priv)
     int           active = (dev->regs[0x07] & 0x02) ||
                            (!(dev->regs[0x03] & 0x01) && !machine_turbo_switch);
 
+    machine_speed_pct = active ? ((dev->regs[0x08] & 0x10) ? 33 : 67) : 100;
+
     if (active) {
         double hold_us = (dev->regs[0x08] & 0x10) ? 8.0 : 4.0;
 

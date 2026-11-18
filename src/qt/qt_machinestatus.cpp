@@ -68,6 +68,100 @@ extern int          is_dynarec_active(void);
 
 extern MainWindow *main_window;
 
+/* Front panel speed display: the two or three digit seven-segment LED readout
+   that 486-era cases had, showing the CPU clock in MHz, and the clock the
+   chipset slows it to while de-turbo is on. */
+class SpeedDisplay : public QWidget {
+public:
+    explicit SpeedDisplay(QWidget *parent = nullptr)
+        : QWidget(parent)
+    {
+        setFixedSize(sizeHint());
+    }
+
+    QSize sizeHint() const override { return QSize(3 * digitW + 2 * pad + 2 * gap, 18); }
+
+    void setValue(int mhz, bool turbo)
+    {
+        if ((mhz == value) && (turbo == isTurbo))
+            return;
+        value   = mhz;
+        isTurbo = turbo;
+        update();
+    }
+
+    std::function<void()> onClick;
+
+protected:
+    void mousePressEvent(QMouseEvent *) override
+    {
+        if (onClick)
+            onClick();
+    }
+
+    void paintEvent(QPaintEvent *) override
+    {
+        /* Segments a-g, bit 0 = a. */
+        static const uint8_t font[10] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f };
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(16, 6, 6));
+        p.drawRoundedRect(rect(), 2, 2);
+
+        const QColor lit   = isTurbo ? QColor(255, 40, 30) : QColor(255, 170, 20);
+        const QColor unlit = QColor(60, 14, 10);
+        const int    h     = height() - 6;
+        const int    y0    = 3;
+        uint8_t      segs[3] = { 0, 0, 0 };
+        if (value >= 0) {
+            int v = (value > 999) ? 999 : value;
+            segs[2] = font[v % 10];
+            if (v >= 10)
+                segs[1] = font[(v / 10) % 10];
+            if (v >= 100)
+                segs[0] = font[v / 100];
+        }
+        for (int d = 0; d < 3; d++) {
+            const qreal x  = pad + d * (digitW + gap);
+            const qreal w  = digitW - 1;
+            const qreal t  = 1.6;
+            const qreal hh = h / 2.0;
+            const QRectF r[7] = {
+                QRectF(x + t, y0, w - 2 * t, t),                    /* a */
+                QRectF(x + w - t, y0 + t, t, hh - t),               /* b */
+                QRectF(x + w - t, y0 + hh, t, hh - t),              /* c */
+                QRectF(x + t, y0 + h - t, w - 2 * t, t),            /* d */
+                QRectF(x, y0 + hh, t, hh - t),                      /* e */
+                QRectF(x, y0 + t, t, hh - t),                       /* f */
+                QRectF(x + t, y0 + hh - t / 2, w - 2 * t, t),       /* g */
+            };
+            for (int s = 0; s < 7; s++) {
+                p.setBrush((segs[d] & (1 << s)) ? lit : unlit);
+                p.drawRect(r[s]);
+            }
+        }
+    }
+
+private:
+    static constexpr int digitW = 9;
+    static constexpr int gap    = 2;
+    static constexpr int pad    = 3;
+    int  value   = -1;
+    bool isTurbo = true;
+};
+
+/* The clock the display shows, as the panel's jumpers would be set: whole MHz
+   (66 for a 66.67 MHz part), scaled down while the chipset de-turbos. */
+static int
+speed_display_mhz(void)
+{
+    const int mhz = machine_get_cpu_mhz();
+    if (mhz <= 0)
+        return -1;
+    return (mhz * machine_speed_pct + 50) / 100;
+}
+
 static bool sbar_initialized = false;
 
 namespace {
@@ -523,6 +617,7 @@ struct MachineStatus::States {
 
     std::array<std::unique_ptr<QLabel>, BOARD_LED_MAX> board_leds;
     std::array<int, BOARD_LED_MAX>                     board_led_shown;
+    std::unique_ptr<SpeedDisplay>                      speed;
 };
 
 MachineStatus::MachineStatus(QObject *parent)
@@ -788,6 +883,9 @@ MachineStatus::refreshIcons()
         }
     }
 
+    if (d->speed)
+        d->speed->setValue(speed_display_mhz(), machine_speed_pct >= 100);
+
     if (d->dynarec) {
         d->dynarec->setVisible(cpu_use_dynarec);
         d->dynarec->setPixmapIfChanged(!is_dynarec_active() ? d->pixmaps.dynarec.disabled : d->pixmaps.dynarec.normal);
@@ -941,6 +1039,8 @@ MachineStatus::refresh(QStatusBar *sbar)
         sbar->removeWidget(d->board_leds[i].get());
         d->board_leds[i].reset();
     }
+    sbar->removeWidget(d->speed.get());
+    d->speed.reset();
 
     if (cassette_enable) {
         d->cassette.label = std::make_unique<ClickableLabel>();
@@ -1271,6 +1371,16 @@ MachineStatus::refresh(QStatusBar *sbar)
         d->board_leds[i]->setToolTip((board_led_count() > 1) ? tr("Board LED %1").arg(i + 1) : tr("Board LED"));
         sbar->addWidget(d->board_leds[i].get());
     }
+
+    d->speed = std::make_unique<SpeedDisplay>();
+    d->speed->setToolTip(machine_has_turbo_switch() ? tr("Front panel speed display (click for the Turbo switch)") :
+                                                      tr("Front panel speed display"));
+    d->speed->onClick = [] {
+        if (machine_has_turbo_switch())
+            machine_turbo_switch = !machine_turbo_switch;
+    };
+    d->speed->setValue(speed_display_mhz(), machine_speed_pct >= 100);
+    sbar->addWidget(d->speed.get());
 
     d->sound = std::make_unique<ClickableLabel>();
     d->sound->setPixmapIfChanged((sound_muted || (runctl_mode() == RUN_MODE_FAST)) ? d->pixmaps.sound.disabled : d->pixmaps.sound.normal);

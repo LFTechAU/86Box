@@ -437,6 +437,10 @@ extern void            machine_init(void);
 extern volatile int    machine_turbo_switch;
 extern void            machine_set_turbo_switch_present(int present);
 extern int             machine_has_turbo_switch(void);
+/* Speed the chipset lets the CPU run at, in percent (de-turbo lowers it),
+   for the front panel speed display. */
+extern volatile int    machine_speed_pct;
+extern int             machine_get_cpu_mhz(void);
 #ifdef EMU_DEVICE_H
 extern const device_t *machine_get_kbc_device(int m);
 extern const device_t *machine_get_kbd_device(int m);
