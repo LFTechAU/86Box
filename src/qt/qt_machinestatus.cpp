@@ -68,6 +68,10 @@ extern int          is_dynarec_active(void);
 #include <QScreen>
 #include <QMessageBox>
 #include <QCheckBox>
+#include <QToolTip>
+#include <QHelpEvent>
+#include <QRadialGradient>
+#include <QLinearGradient>
 
 #include "qt_mediamenu.hpp"
 #include "qt_mainwindow.hpp"
@@ -79,20 +83,22 @@ extern int          is_dynarec_active(void);
 
 extern MainWindow *main_window;
 
-/* Front panel: the Power, Reset and Turbo buttons, the green power,
-   yellow Turbo and red hard disk LEDs and the two or three digit
-   seven-segment speed display that 486-era cases had. The display shows
-   the CPU clock in MHz, or the clock the chipset slows it to while
-   de-turbo is on, unless its jumpers are set to fixed readouts. */
+/* Front panel, in the beige plastic of a 486-era case: the power switch,
+   the green Power, yellow Turbo and red hard disk LEDs, the round Turbo
+   and Reset buttons, and the two or three digit seven-segment speed
+   display. The display shows the CPU clock in MHz, or the clock the
+   chipset slows it to while de-turbo is on, unless its jumpers are set
+   to fixed readouts. */
 class SpeedDisplay : public QWidget {
 public:
     explicit SpeedDisplay(QWidget *parent = nullptr)
         : QWidget(parent)
     {
         setFixedSize(sizeHint());
+        setMouseTracking(true);
     }
 
-    QSize sizeHint() const override { return QSize(buttonsW + ledsW + 3 * digitW + 2 * pad + 2 * gap, 18); }
+    QSize sizeHint() const override { return QSize(displayX + 3 * digitW + 2 * gap + 2 * pad + 3, 18); }
 
     void setState(const QString &txt, bool turbo, bool hdd, bool power, bool hasTurbo)
     {
@@ -113,17 +119,46 @@ public:
     std::function<void(QPoint)> onMenu;
 
 protected:
-    enum Button { None, Power, Reset, Turbo };
+    enum Button { None, Power, Turbo, Reset };
 
     static Button buttonAt(int x)
     {
-        if ((x >= powerX - 1) && (x < powerX + powerW + 1))
+        if ((x >= powerX - 2) && (x < powerX + powerW + 2))
             return Power;
-        if ((x >= resetX - 1) && (x < resetX + resetW + 1))
-            return Reset;
-        if ((x >= turboX - 1) && (x < turboX + turboW + 1))
+        if ((x >= turboX - 2) && (x < turboX + btnD + 2))
             return Turbo;
+        if ((x >= resetX - 2) && (x < resetX + btnD + 2))
+            return Reset;
         return None;
+    }
+
+    /* Each part says what it is when hovered. */
+    bool event(QEvent *e) override
+    {
+        if (e->type() == QEvent::ToolTip) {
+            const auto *he = static_cast<QHelpEvent *>(e);
+            QString     tip;
+            switch (buttonAt(he->pos().x())) {
+                case Power:
+                    tip = powerOn ? tr("Power switch (on): click to switch the machine off") :
+                                    tr("Power switch (off): click to switch the machine on");
+                    break;
+                case Turbo:
+                    tip = turboSwitch ? tr("Turbo button: click to switch Turbo on or off") :
+                                        tr("Turbo button (this board has no Turbo switch)");
+                    break;
+                case Reset:
+                    tip = tr("Reset button: restarts the machine, the drives keep spinning");
+                    break;
+                default:
+                    tip = (he->pos().x() < turboX) ? tr("Power, Turbo and hard disk LEDs") :
+                                                     tr("Speed display: right-click to set its jumpers");
+                    break;
+            }
+            QToolTip::showText(he->globalPos(), tip, this);
+            return true;
+        }
+        return QWidget::event(e);
     }
 
     void mousePressEvent(QMouseEvent *e) override
@@ -140,8 +175,6 @@ protected:
         const int x = e->pos().x();
 #endif
         pressed = buttonAt(x);
-        if (pressed == None)
-            pressed = Turbo; /* The rest of the panel works the Turbo switch, as before. */
         update();
     }
 
@@ -194,21 +227,26 @@ protected:
         }
     }
 
-    /* A square push button in the case's grey plastic; latched buttons sit
-       further in, and so look darker. */
-    static void drawButton(QPainter &p, const QRectF &r, bool in, bool enabled)
+    /* A round beige push button; pushed in, it sits deeper in its hole and
+       its face falls into shadow. */
+    static void drawRoundButton(QPainter &p, const QRectF &r, bool in, bool enabled)
     {
-        p.setBrush(QColor(20, 20, 20));
-        p.drawRoundedRect(r.adjusted(-1, -1, 1, 1), 2, 2);
-        QColor face = in ? QColor(120, 120, 116) : QColor(190, 190, 184);
-        if (!enabled)
-            face = QColor(90, 90, 88);
-        p.setBrush(face);
-        p.drawRoundedRect(in ? r.adjusted(0.8, 0.8, -0.8, -0.8) : r, 1.5, 1.5);
-        if (!in && enabled) {
-            p.setBrush(QColor(230, 230, 224));
-            p.drawRect(QRectF(r.left() + 1, r.top() + 0.5, r.width() - 2, 1));
+        p.setBrush(QColor(120, 112, 94));
+        p.drawEllipse(r.adjusted(-1.2, -1.2, 1.2, 1.2));
+        QRadialGradient grad(r.center() - QPointF(r.width() * 0.2, r.height() * 0.25), r.width() * 0.75);
+        if (in) {
+            grad.setColorAt(0, QColor(190, 182, 160));
+            grad.setColorAt(1, QColor(150, 142, 122));
+        } else {
+            grad.setColorAt(0, QColor(250, 246, 232));
+            grad.setColorAt(1, QColor(196, 188, 166));
         }
+        if (!enabled) {
+            grad.setColorAt(0, QColor(200, 194, 176));
+            grad.setColorAt(1, QColor(178, 170, 150));
+        }
+        p.setBrush(grad);
+        p.drawEllipse(in ? r.adjusted(0.7, 0.7, -0.7, -0.7) : r);
     }
 
     void paintEvent(QPaintEvent *) override
@@ -217,62 +255,74 @@ protected:
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setPen(Qt::NoPen);
 
-        /* The buttons, on the case's bezel. */
-        p.setBrush(QColor(70, 70, 68));
-        p.drawRoundedRect(QRectF(0, 0, buttonsW - 2, height()), 2, 2);
-        const qreal by = (height() - btnH) / 2.0;
+        /* The beige bezel. */
+        QLinearGradient bezel(0, 0, 0, height());
+        bezel.setColorAt(0, QColor(232, 226, 206));
+        bezel.setColorAt(1, QColor(206, 198, 174));
+        p.setBrush(QColor(150, 142, 120));
+        p.drawRoundedRect(QRectF(0, 0, width(), height()), 2.5, 2.5);
+        p.setBrush(bezel);
+        p.drawRoundedRect(QRectF(0.8, 0.8, width() - 1.6, height() - 1.6), 2, 2);
 
-        /* Power: a large latching button, in while the machine is on. */
-        const QRectF pr(powerX, by, powerW, btnH);
-        drawButton(p, pr, powerOn || (pressed == Power), true);
-        p.setPen(QPen(QColor(40, 40, 40), 1.0));
+        /* The power switch: a rocker, its "I" side pushed in while on. */
+        const QRectF sw(powerX, (height() - swH) / 2.0, powerW, swH);
+        p.setBrush(QColor(110, 104, 88));
+        p.drawRoundedRect(sw.adjusted(-1, -1, 1, 1), 1.5, 1.5);
+        const bool   on   = powerOn != (pressed == Power);
+        const QRectF top  = QRectF(sw.left(), sw.top(), sw.width(), sw.height() / 2);
+        const QRectF bot  = QRectF(sw.left(), sw.center().y(), sw.width(), sw.height() / 2);
+        p.setBrush(on ? QColor(150, 144, 124) : QColor(236, 230, 212));
+        p.drawRect(top);
+        p.setBrush(on ? QColor(236, 230, 212) : QColor(150, 144, 124));
+        p.drawRect(bot);
+        p.setPen(QPen(QColor(60, 56, 48), 1.0));
+        p.drawLine(QPointF(sw.center().x(), top.top() + 1.5), QPointF(sw.center().x(), top.bottom() - 1.5));
         p.setBrush(Qt::NoBrush);
-        const qreal cx = pr.center().x();
-        const qreal cy = pr.center().y() + 0.5;
-        p.drawArc(QRectF(cx - 3, cy - 3, 6, 6), 120 * 16, 300 * 16);
-        p.drawLine(QPointF(cx, cy - 4), QPointF(cx, cy - 0.5));
+        p.drawEllipse(QRectF(sw.center().x() - 1.8, bot.top() + 1.2, 3.6, bot.height() - 2.4));
         p.setPen(Qt::NoPen);
 
-        /* Reset: a small recessed momentary button. */
-        const QRectF rr(resetX, (height() - resetW) / 2.0, resetW, resetW);
-        p.setBrush(QColor(20, 20, 20));
-        p.drawEllipse(rr.adjusted(-1, -1, 1, 1));
-        p.setBrush((pressed == Reset) ? QColor(110, 30, 26) : QColor(170, 46, 40));
-        p.drawEllipse((pressed == Reset) ? rr.adjusted(0.8, 0.8, -0.8, -0.8) : rr);
-
-        /* Turbo: latching, in while Turbo is on. */
-        drawButton(p, QRectF(turboX, by, turboW, btnH), turboSwitch && (isTurbo != (pressed == Turbo)),
-                   turboSwitch);
-
-        /* The display panel. */
-        p.setBrush(QColor(16, 6, 6));
-        p.drawRoundedRect(QRectF(buttonsW, 0, width() - buttonsW, height()), 2, 2);
-
-        /* The LEDs, as on the case: power (green), Turbo (yellow), then hard
-           disk (red). */
+        /* The LEDs, set into the bezel: Power (green), Turbo (yellow) and
+           hard disk (red). */
         const qreal ly = (height() - led) / 2.0;
-        const qreal lx = buttonsW + pad;
-        p.setBrush(powerOn ? QColor(60, 230, 60) : QColor(12, 48, 12));
-        p.drawEllipse(QRectF(lx, ly, led, led));
-        p.setBrush((powerOn && isTurbo) ? QColor(255, 220, 40) : QColor(60, 52, 10));
-        p.drawEllipse(QRectF(lx + (led + ledGap), ly, led, led));
-        p.setBrush((powerOn && hddOn) ? QColor(255, 40, 30) : QColor(60, 12, 10));
-        p.drawEllipse(QRectF(lx + 2 * (led + ledGap), ly, led, led));
+        const QColor ledOn[3]  = { QColor(70, 240, 70), QColor(255, 220, 40), QColor(255, 50, 36) };
+        const QColor ledOff[3] = { QColor(40, 70, 36), QColor(96, 84, 30), QColor(96, 40, 32) };
+        const bool   lit[3]    = { powerOn, powerOn && isTurbo, powerOn && hddOn };
+        for (int i = 0; i < 3; i++) {
+            const QRectF lr(ledsX + i * (led + ledGap), ly, led, led);
+            p.setBrush(QColor(120, 112, 94));
+            p.drawEllipse(lr.adjusted(-0.8, -0.8, 0.8, 0.8));
+            p.setBrush(lit[i] ? ledOn[i] : ledOff[i]);
+            p.drawEllipse(lr);
+            if (lit[i]) {
+                p.setBrush(QColor(255, 255, 255, 140));
+                p.drawEllipse(QRectF(lr.left() + 1.2, lr.top() + 1.0, 2, 1.6));
+            }
+        }
 
-        /* The speed display, in green at both speeds. */
-        const QColor lit   = QColor(50, 255, 80);
+        /* Turbo latches in while Turbo is on; Reset springs back. */
+        const qreal bty = (height() - btnD) / 2.0;
+        drawRoundButton(p, QRectF(turboX, bty, btnD, btnD),
+                        turboSwitch && (isTurbo != (pressed == Turbo)), turboSwitch);
+        drawRoundButton(p, QRectF(resetX, bty, btnD, btnD), pressed == Reset, true);
+
+        /* The speed display, in green at both speeds, behind its window. */
+        p.setBrush(QColor(110, 104, 88));
+        p.drawRoundedRect(QRectF(displayX - 1, 1.5, width() - displayX - 1.5, height() - 3), 1.5, 1.5);
+        p.setBrush(QColor(12, 10, 8));
+        p.drawRect(QRectF(displayX, 2.5, width() - displayX - 3.5, height() - 5));
+        const QColor litc  = QColor(50, 255, 80);
         const QColor unlit = QColor(8, 42, 14);
-        const int    h     = height() - 6;
-        const int    y0    = 3;
+        const int    h     = height() - 8;
+        const int    y0    = 4;
         uint8_t      segs[3] = { 0, 0, 0 };
         /* Right-aligned, as the display's digits are wired. */
         const int    n     = !powerOn ? 0 : ((text.size() > 3) ? 3 : text.size());
         for (int i = 0; i < n; i++)
             segs[3 - n + i] = glyph(text[i]);
         for (int d = 0; d < 3; d++) {
-            const qreal x  = buttonsW + ledsW + pad + d * (digitW + gap);
+            const qreal x  = displayX + pad + d * (digitW + gap);
             const qreal w  = digitW - 1;
-            const qreal t  = 1.6;
+            const qreal t  = 1.5;
             const qreal hh = h / 2.0;
             const QRectF r[7] = {
                 QRectF(x + t, y0, w - 2 * t, t),                    /* a */
@@ -284,27 +334,26 @@ protected:
                 QRectF(x + t, y0 + hh - t / 2, w - 2 * t, t),       /* g */
             };
             for (int s = 0; s < 7; s++) {
-                p.setBrush((segs[d] & (1 << s)) ? lit : unlit);
+                p.setBrush((segs[d] & (1 << s)) ? litc : unlit);
                 p.drawRect(r[s]);
             }
         }
     }
 
 private:
-    static constexpr int btnH     = 12;
-    static constexpr int powerX   = 3;
-    static constexpr int powerW   = 12;
-    static constexpr int resetX   = powerX + powerW + 5;
-    static constexpr int resetW   = 7;
-    static constexpr int turboX   = resetX + resetW + 5;
-    static constexpr int turboW   = 9;
-    static constexpr int buttonsW = turboX + turboW + 5;
+    static constexpr int powerX   = 4;
+    static constexpr int powerW   = 7;
+    static constexpr int swH      = 12;
+    static constexpr int led      = 5;
+    static constexpr int ledGap   = 4;
+    static constexpr int ledsX    = powerX + powerW + 6;
+    static constexpr int btnD     = 11;
+    static constexpr int turboX   = ledsX + 3 * led + 2 * ledGap + 6;
+    static constexpr int resetX   = turboX + btnD + 5;
+    static constexpr int displayX = resetX + btnD + 6;
     static constexpr int digitW   = 9;
     static constexpr int gap      = 2;
     static constexpr int pad      = 3;
-    static constexpr int led      = 6;
-    static constexpr int ledGap   = 4;
-    static constexpr int ledsW    = 3 * led + 2 * ledGap + 4;
     QString text;
     bool    isTurbo     = true;
     bool    hddOn       = false;
@@ -1570,9 +1619,6 @@ MachineStatus::refresh(QStatusBar *sbar)
     }
 
     d->speed = std::make_unique<SpeedDisplay>();
-    d->speed->setToolTip(machine_has_turbo_switch() ?
-                             tr("Front panel: Power, Reset and Turbo buttons, power, Turbo and hard disk LEDs, and speed display\nRight-click to set the display's jumpers") :
-                             tr("Front panel: Power and Reset buttons, power, Turbo and hard disk LEDs, and speed display\nRight-click to set the display's jumpers"));
     d->speed->onClick = [] {
         if (machine_has_turbo_switch())
             machine_turbo_switch = !machine_turbo_switch;
