@@ -339,18 +339,47 @@ machine_at_sis401_common_init(const machine_t *model)
         device_add(&fdc_at_device);
 }
 
+static const device_config_t isa486_config[] = {
+    // clang-format off
+    MACHINE_LFTECH_BIOS_CONFIG("AMI 05/05/91 by LFTech"),
+    MACHINE_DRAM_EXTRA_CONFIG(1),
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t isa486_device = {
+    .name          = "ASUS ISA-486",
+    .internal_name = "isa486",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = isa486_config
+};
+
 int
 machine_at_isa486_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear("roms/machines/isa486/ISA-486.BIN",
+    ret = bios_load_linear(machine_get_config_int("bios_lftech") ?
+                               "roms/machines/isa486/ISA-486-lftech.bin" :
+                               "roms/machines/isa486/ISA-486.BIN",
                            0x000f0000, 65536, 0);
 
     if (bios_only || !ret)
         return ret;
 
     machine_at_sis401_common_init(model);
+
+    /* Slows uncached DRAM accesses (such as the POST memory count) to the
+       pace of a real board's slower DRAM timing. */
+    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_update_waitstates();
 
     return ret;
 }

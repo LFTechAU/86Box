@@ -960,6 +960,7 @@ extern const device_t  vli486sv2g_device;
                          { .description = "" } }                                      \
     }
 extern const device_t  av4_device;
+extern const device_t  isa486_device;
 extern const device_t  ali1429_mach_device;
 extern const device_t  ecs386v_device;
 extern const device_t  greenb_device;
