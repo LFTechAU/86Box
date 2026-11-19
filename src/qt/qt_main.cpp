@@ -64,6 +64,7 @@ extern "C" {
 #include <86box/video.h>
 #include <86box/version.h>
 #include <86box/renderdefs.h>
+extern void hdd_audio_spindown_wait(void);
 }
 
 #ifdef Q_OS_WINDOWS
@@ -890,6 +891,9 @@ main(int argc, char *argv[])
     const auto ret = app.exec();
     runctl_request_stop();
     main_thread->join();
+    /* Let the hard disks spin down audibly before tearing down. */
+    if (!(runctl_pause_reasons() & (RUN_PAUSE_USER | RUN_PAUSE_FATAL)))
+        hdd_audio_spindown_wait();
     pc_close(nullptr);
     endblit();
 

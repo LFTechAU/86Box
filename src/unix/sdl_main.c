@@ -30,6 +30,8 @@
 #endif
 
 #include <86box/86box.h>
+#include <86box/hdd.h>
+#include <86box/hdd_audio.h>
 #include <86box/keyboard.h>
 #include <86box/mouse.h>
 #include <86box/plat.h>
@@ -258,6 +260,10 @@ do_stop(void)
 
     is_quit = 1;
     sdl_close();
+
+    /* Let the hard disks spin down audibly before tearing down. */
+    if (!(runctl_pause_reasons() & (RUN_PAUSE_USER | RUN_PAUSE_FATAL)))
+        hdd_audio_spindown_wait();
 
     pc_close(thMain);
 

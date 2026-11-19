@@ -2104,6 +2104,8 @@ pc_reset_hard_init(void)
 
     /* Reset the CPU module. */
     resetx86();
+    /* Real drives start spinning before the POST gets going. */
+    hdd_audio_power_on_hold();
     dma_reset();
     pci_pic_reset();
     cpu_cache_int_enabled = cpu_cache_ext_enabled = 0;

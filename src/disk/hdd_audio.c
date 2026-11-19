@@ -29,6 +29,7 @@
 #include <86box/mem.h>
 #include <86box/rom.h>
 #include <86box/timer.h>
+#include "cpu.h"
 
 /* Maximum number of simultaneous seek sounds per HDD */
 #define HDD_MAX_SEEK_VOICES_PER_HDD 8
@@ -60,9 +61,12 @@ typedef struct {
     int                  mech_busy;       /* Drive reports BSY until the run ends */
     int                  mech_srst_seen;  /* An SRST has been seen since power-on */
     uint64_t             mech_srst_tsc;   /* When the last SRST was seen */
+    int                  restart_after_stop; /* Power cycle: spin up again once stopped */
 } hdd_audio_drive_state_t;
 
-static void hdd_audio_mech_power_on(hdd_audio_drive_state_t *state);
+static void hdd_audio_mech_power_on(hdd_audio_drive_state_t *state, double extra_us);
+static void hdd_audio_spindle_stopped(hdd_audio_drive_state_t *state);
+static int  hdd_audio_mech_eligible(const hdd_audio_drive_state_t *state);
 
 enum {
     HDD_MECH_IDLE = 0,
@@ -75,6 +79,7 @@ enum {
 #define HDD_MECH_POWERON_CLICKS 8
 #define HDD_MECH_SRST_CLICKS    4
 #define HDD_MECH_SRST_QUIET_US  10000000.0
+#define HDD_MECH_POWERON_HOLD_MS 2000
 
 /* Audio samples structure for a profile */
 typedef struct {
@@ -105,6 +110,19 @@ static hdd_audio_drive_state_t drive_states[HDD_AUDIO_MAX_DRIVES];
 static int                     active_drive_count = 0;
 
 static mutex_t *hdd_audio_mutex = NULL;
+
+/* Set while the drives spin down at exit, so the HDD sound thread keeps
+   rendering although the machine has stopped. */
+volatile int hdd_audio_closing = 0;
+
+/* Set once the machine has been powered on by the first hard reset. */
+static int hdd_audio_powered = 0;
+
+/* At power-on the processor is held (STPCLK#) while the drives spin
+   down (on a power cycle) and start spinning up, so the drive is heard
+   before the POST begins. */
+static pc_timer_t hdd_audio_hold_timer;
+static double     hdd_audio_hold_us = 0.0;
 
 #ifdef ENABLE_HDD_AUDIO_LOG
 int hdd_audio_do_log = ENABLE_HDD_AUDIO_LOG;
@@ -187,6 +205,7 @@ hdd_audio_load_profiles(void)
         config->rpm = ini_section_get_int(cat, "rpm", 0);
         config->poweron_clicks = ini_section_get_int(cat, "poweron_clicks", HDD_MECH_POWERON_CLICKS);
         config->srst_clicks    = ini_section_get_int(cat, "srst_clicks", HDD_MECH_SRST_CLICKS);
+        config->poweron_hold_ms = ini_section_get_int(cat, "poweron_hold_ms", HDD_MECH_POWERON_HOLD_MS);
 
         /* Load spindle motor sample files */
         const char *file = ini_section_get_string(cat, "spindlemotor_start_file", "");
@@ -449,6 +468,19 @@ hdd_audio_reset(void)
     if (hdd_audio_mutex)
         thread_wait_mutex(hdd_audio_mutex);
     
+    hdd_audio_hold_us = 0.0;
+
+    /* Remember which drives were spinning: a hard reset is a power cycle,
+       so they spin down before spinning up again. */
+    int was_spinning[HDD_NUM];
+    for (int i = 0; i < HDD_NUM; i++)
+        was_spinning[i] = -1;
+    for (int i = 0; hdd_audio_powered && (i < active_drive_count); i++) {
+        if ((drive_states[i].spindle_state == HDD_SPINDLE_RUNNING) ||
+            (drive_states[i].spindle_state == HDD_SPINDLE_STARTING))
+            was_spinning[drive_states[i].hdd_index] = drive_states[i].profile_id;
+    }
+
     /* Reset all drive states */
     for (int i = 0; i < active_drive_count; i++) {
         drive_states[i].spindle_state = HDD_SPINDLE_STOPPED;
@@ -521,9 +553,31 @@ hdd_audio_reset(void)
     
     /* Start spindle motors for all active drives */
     for (int i = 0; i < active_drive_count; i++) {
-        hdd_audio_spinup_drive(drive_states[i].hdd_index);
-        hdd_audio_mech_power_on(&drive_states[i]);
+        hdd_audio_drive_state_t   *state   = &drive_states[i];
+        const hdd_audio_samples_t *samples = &profile_samples[state->profile_id];
+        double                     stop_us = 0.0;
+
+        state->restart_after_stop = 0;
+        if ((was_spinning[state->hdd_index] == state->profile_id) && samples->spindle_stop_buffer &&
+            (samples->spindle_stop_samples > 0) && hdd_audio_mutex) {
+            thread_wait_mutex(hdd_audio_mutex);
+            state->spindle_state          = HDD_SPINDLE_STOPPING;
+            state->spindle_transition_pos = 0;
+            state->restart_after_stop     = 1;
+            thread_release_mutex(hdd_audio_mutex);
+            stop_us = (double) samples->spindle_stop_samples * 1000000.0 / 48000.0;
+        } else
+            hdd_audio_spinup_drive(state->hdd_index);
+        hdd_audio_mech_power_on(state, stop_us);
+
+        if (hdd_audio_mech_eligible(state)) {
+            double hold_us = stop_us + (double) audio_profiles[state->profile_id].poweron_hold_ms * 1000.0;
+            if (hold_us > hdd_audio_hold_us)
+                hdd_audio_hold_us = hold_us;
+        }
     }
+
+    hdd_audio_powered = 1;
 }
 
 /* Start a seek voice regardless of the minimum spacing. */
@@ -609,10 +663,11 @@ hdd_audio_mech_timer(void *priv)
     }
 }
 
-/* Set up the power-on sequence: the drive is busy while it spins up,
-   then calibrates. Called on hard reset after the spindles start. */
+/* Set up the power-on sequence: the drive is busy while it spins up
+   (after extra_us of spinning down, on a power cycle), then calibrates.
+   Called on hard reset after the spindles are set going. */
 static void
-hdd_audio_mech_power_on(hdd_audio_drive_state_t *state)
+hdd_audio_mech_power_on(hdd_audio_drive_state_t *state, double extra_us)
 {
     const hdd_audio_samples_t *samples;
     double                     spinup_us;
@@ -636,7 +691,72 @@ hdd_audio_mech_power_on(hdd_audio_drive_state_t *state)
 
     state->mech_phase = HDD_MECH_SPINUP;
     state->mech_busy  = 1;
-    timer_set_delay_u64(&state->mech_timer, (uint64_t) (spinup_us * TIMER_USEC));
+    timer_set_delay_u64(&state->mech_timer, (uint64_t) ((extra_us + spinup_us) * TIMER_USEC));
+}
+
+/* Spin every drive down and wait (in real time) for the spin-down
+   sounds to finish. Called when the emulator is closing. */
+void
+hdd_audio_spindown_wait(void)
+{
+    int max_ms = 0;
+
+    if (!hdd_audio_mutex || (active_drive_count == 0))
+        return;
+
+    for (int i = 0; i < active_drive_count; i++) {
+        const hdd_audio_samples_t *samples = &profile_samples[drive_states[i].profile_id];
+        int                        ms;
+
+        if ((drive_states[i].spindle_state != HDD_SPINDLE_RUNNING) &&
+            (drive_states[i].spindle_state != HDD_SPINDLE_STARTING))
+            continue;
+        if (!samples->spindle_stop_buffer || (samples->spindle_stop_samples <= 0))
+            continue;
+
+        ms = (int) ((int64_t) samples->spindle_stop_samples * 1000 / 48000);
+        if (ms > max_ms)
+            max_ms = ms;
+
+        thread_wait_mutex(hdd_audio_mutex);
+        drive_states[i].restart_after_stop     = 0;
+        drive_states[i].spindle_state          = HDD_SPINDLE_STOPPING;
+        drive_states[i].spindle_transition_pos = 0;
+        thread_release_mutex(hdd_audio_mutex);
+    }
+
+    if (max_ms == 0)
+        return;
+    if (max_ms > 8000)
+        max_ms = 8000;
+
+    hdd_audio_closing = 1;
+
+    /* Allow for the audio buffer in flight. */
+    for (int t = 0; t < (max_ms + 250); t += 20) {
+        if (hdd_audio_get_spindle_state() == HDD_SPINDLE_STOPPED)
+            break;
+        plat_delay_ms(20);
+    }
+    plat_delay_ms(250);
+}
+
+static void
+hdd_audio_hold_release(UNUSED(void *priv))
+{
+    cpu_stpclk = 0;
+}
+
+/* Called after the processor has been reset at power-on. */
+void
+hdd_audio_power_on_hold(void)
+{
+    if (hdd_audio_hold_us <= 0.0)
+        return;
+
+    timer_add(&hdd_audio_hold_timer, hdd_audio_hold_release, NULL, 0);
+    cpu_stpclk = 1;
+    timer_set_delay_u64(&hdd_audio_hold_timer, (uint64_t) (hdd_audio_hold_us * TIMER_USEC));
 }
 
 /* Returns non-zero while the drive is spinning up or calibrating. */
@@ -911,13 +1031,26 @@ hdd_audio_mix_spindle_loop_float(hdd_audio_drive_state_t *state, hdd_audio_sampl
     }
 }
 
+/* The spin-down sample has finished: stop, or after a power cycle start
+   spinning up again. Called from the mixer with the mutex held. */
+static void
+hdd_audio_spindle_stopped(hdd_audio_drive_state_t *state)
+{
+    if (state->restart_after_stop) {
+        state->restart_after_stop     = 0;
+        state->spindle_state          = HDD_SPINDLE_STARTING;
+        state->spindle_transition_pos = 0;
+    } else
+        state->spindle_state = HDD_SPINDLE_STOPPED;
+}
+
 /* Helper: Mix spindle stop sound into float buffer */
 static void
 hdd_audio_mix_spindle_stop_float(hdd_audio_drive_state_t *state, hdd_audio_samples_t *samples,
                                   float *float_buffer, int frames_in_buffer)
 {
     if (!samples->spindle_stop_buffer || samples->spindle_stop_samples <= 0) {
-        state->spindle_state = HDD_SPINDLE_STOPPED;
+        hdd_audio_spindle_stopped(state);
         return;
     }
     
@@ -931,7 +1064,7 @@ hdd_audio_mix_spindle_stop_float(hdd_audio_drive_state_t *state, hdd_audio_sampl
     }
     
     if (state->spindle_transition_pos >= samples->spindle_stop_samples) {
-        state->spindle_state = HDD_SPINDLE_STOPPED;
+        hdd_audio_spindle_stopped(state);
         hdd_audio_log("HDD Audio: Drive %d spindown complete, now stopped\n", state->hdd_index);
     }
 }
@@ -1033,7 +1166,7 @@ hdd_audio_mix_spindle_stop_int16(hdd_audio_drive_state_t *state, hdd_audio_sampl
                                   int16_t *buffer, int frames_in_buffer)
 {
     if (!samples->spindle_stop_buffer || samples->spindle_stop_samples <= 0) {
-        state->spindle_state = HDD_SPINDLE_STOPPED;
+        hdd_audio_spindle_stopped(state);
         return;
     }
     
@@ -1051,7 +1184,7 @@ hdd_audio_mix_spindle_stop_int16(hdd_audio_drive_state_t *state, hdd_audio_sampl
     }
     
     if (state->spindle_transition_pos >= samples->spindle_stop_samples) {
-        state->spindle_state = HDD_SPINDLE_STOPPED;
+        hdd_audio_spindle_stopped(state);
         hdd_audio_log("HDD Audio: Drive %d spindown complete, now stopped\n", state->hdd_index);
     }
 }

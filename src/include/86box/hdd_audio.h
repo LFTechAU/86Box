@@ -50,6 +50,7 @@ typedef struct {
     hdd_audio_sample_config_t seek_track;
     int                       poweron_clicks; /* Calibration clicks after spin-up (0 = in the spin-up sample) */
     int                       srst_clicks;    /* Recalibration clicks on a soft reset */
+    int                       poweron_hold_ms; /* POST held this long while the drive starts */
 } hdd_audio_profile_config_t;
 
 /* Functions for profile management */
@@ -69,6 +70,9 @@ extern void hdd_audio_callback(int16_t *buffer, int length);
 extern void hdd_audio_seek(hard_disk_t *hdd, uint32_t new_cylinder);
 extern int  hdd_audio_drive_busy(int hdd_index);
 extern void hdd_audio_drive_srst(int hdd_index);
+extern void hdd_audio_spindown_wait(void);
+extern void hdd_audio_power_on_hold(void);
+extern volatile int hdd_audio_closing;
 
 /* Per-drive spindle control */
 extern void hdd_audio_spinup_drive(int hdd_index);

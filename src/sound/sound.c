@@ -1393,7 +1393,8 @@ sound_hdd_thread(UNUSED(void *param))
     uint64_t frames_rendered = 0;
 
     while (hddaudioon) {
-        if (dopause) {
+        /* Keep rendering while the drives spin down at exit. */
+        if (dopause && !hdd_audio_closing) {
             thread_wait_event(sound_hdd_event, 50);
             thread_reset_event(sound_hdd_event);
             start_time      = plat_get_ticks();
