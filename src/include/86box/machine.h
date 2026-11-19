@@ -933,6 +933,25 @@ extern const device_t  vli486sv2g_device;
                          { .description = lftech_name, .value = 1 },                  \
                          { .description = "" } }                                      \
     }
+/* External cache size for the ALi M1429 boards, as register 18h bits 6:4
+   (-1: none); see machine_ali1429_cache_params(). */
+#define MACHINE_ALI1429_CACHE_CONFIG(def)                                             \
+    {                                                                                 \
+        .name        = "cache_size",                                                  \
+        .description = "External cache",                                              \
+        .type        = CONFIG_SELECTION,                                              \
+        .default_int = def,                                                           \
+        .selection   = { { .description = "None", .value = -1 },                      \
+                         { .description = "32 KB", .value = 0x00 },                   \
+                         { .description = "64 KB", .value = 0x40 },                   \
+                         { .description = "128 KB", .value = 0x10 },                  \
+                         { .description = "256 KB", .value = 0x20 },                  \
+                         { .description = "512 KB", .value = 0x30 },                  \
+                         { .description = "1 MB", .value = 0x70 },                    \
+                         { .description = "" } }                                      \
+    }
+#define machine_ali1429_cache_params(code)                                            \
+    ((void *) (uintptr_t) (((code) < 0) ? 0x10000 : (0x8000 | ((code) << 8))))
 #define MACHINE_DRAM_EXTRA_CONFIG(def)                                                \
     {                                                                                 \
         .name        = "dram_extra",                                                  \

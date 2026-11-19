@@ -313,6 +313,7 @@ machine_at_tandy4000_init(const machine_t *model)
 static const device_config_t ecs386v_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 08/08/93 by LFTech"),
+    MACHINE_ALI1429_CACHE_CONFIG(0x20),
     MACHINE_DRAM_EXTRA_CONFIG(4),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -347,7 +348,7 @@ machine_at_ecs386v_init(const machine_t *model)
 
     machine_at_common_init(model);
 
-    device_add(&ali1429_device);
+    device_add_params(&ali1429_device, machine_ali1429_cache_params(machine_get_config_int("cache_size")));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */

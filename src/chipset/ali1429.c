@@ -119,6 +119,8 @@ typedef struct ali_1429_t {
     uint8_t cfg_locked;
     uint8_t reg_57h;
     uint8_t regs[90];
+    uint8_t cache_bits; /* register 18h bits 6:4, the cache size */
+    uint8_t no_cache;
 } ali1429_t;
 
 static void
@@ -196,7 +198,13 @@ ali1429_write(uint16_t addr, uint8_t val, void *priv)
                         break;
 
                     case 0x18:
-                        dev->regs[dev->index] = (val & 0x8f) | 0x20;
+                        /* Bits 6:4 are the cache size the BIOS found by timing
+                           cache hits and misses, which is not emulated, so they
+                           hold the board's cache size; a board without cache
+                           cannot turn it on (bit 1). */
+                        if (dev->no_cache)
+                            val &= ~0x02;
+                        dev->regs[dev->index] = (val & 0x8f) | dev->cache_bits;
                         cpu_cache_ext_enabled = !!(val & 2);
                         cpu_update_waitstates();
                         break;
@@ -332,7 +340,12 @@ ali1429_init(const device_t *info)
     ali1429_t *dev = (ali1429_t *) calloc(1, sizeof(ali1429_t));
 
     dev->cfg_locked = 1;
-    GREEN           = info->local;
+    GREEN           = info->local & 0x01;
+
+    /* Bit 15 set: bits 14:8 are the cache size bits for register 18h; bit 16
+       set: no cache. Otherwise 256 KB. */
+    dev->cache_bits = (info->local & 0x8000) ? ((info->local >> 8) & 0x70) : 0x20;
+    dev->no_cache   = !!(info->local & 0x10000);
 
     /* M1429 Ports:
                 22h	Index Port

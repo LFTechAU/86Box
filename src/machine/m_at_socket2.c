@@ -154,6 +154,7 @@ machine_at_ali1429_common_init(const machine_t *model, int is_green)
 static const device_config_t ali1429_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 04/04/93 by LFTech"),
+    MACHINE_ALI1429_CACHE_CONFIG(0x20),
     MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -186,7 +187,14 @@ machine_at_ali1429_init(const machine_t *model)
     if (bios_only || !ret)
         return ret;
 
-    machine_at_ali1429_common_init(model, 0);
+    machine_at_common_init(model);
+
+    device_add_params(&ali1429_device, machine_ali1429_cache_params(machine_get_config_int("cache_size")));
+
+    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+
+    if (fdc_current[0] == FDC_INTERNAL)
+        device_add(&fdc_at_device);
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
