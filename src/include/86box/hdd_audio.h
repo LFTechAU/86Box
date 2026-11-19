@@ -65,6 +65,8 @@ extern void hdd_audio_reset(void);
 extern void hdd_audio_close(void);
 extern void hdd_audio_callback(int16_t *buffer, int length);
 extern void hdd_audio_seek(hard_disk_t *hdd, uint32_t new_cylinder);
+extern int  hdd_audio_drive_busy(int hdd_index);
+extern void hdd_audio_drive_srst(int hdd_index);
 
 /* Per-drive spindle control */
 extern void hdd_audio_spinup_drive(int hdd_index);

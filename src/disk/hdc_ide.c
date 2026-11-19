@@ -45,6 +45,7 @@
 #include <86box/hdc.h>
 #include <86box/hdc_ide.h>
 #include <86box/hdd.h>
+#include <86box/hdd_audio.h>
 #include <86box/lpt.h>
 #include <86box/sound.h>
 #include <86box/rdisk.h>
@@ -1964,6 +1965,12 @@ ide_write_devctl(UNUSED(uint16_t addr), uint8_t val, void *priv)
         ide_other->tf->atastat = BSY_STAT;
         ide_other->tf->error   = 1;
 
+        /* A real drive recalibrates its heads after a soft reset. */
+        if ((ide->type == IDE_HDD) && !ide->removable)
+            hdd_audio_drive_srst(ide->hdd_num);
+        if ((ide_other->type == IDE_HDD) && !ide_other->removable)
+            hdd_audio_drive_srst(ide_other->hdd_num);
+
         /* Fire the timer. */
         dev->diag  = 0;
         ide->reset = 1;
@@ -2581,6 +2588,8 @@ ide_status(ide_t *ide, UNUSED(ide_t *ide_other), UNUSED(int ch))
         ret = ide->tf->atastat;
         if (ide->type == IDE_ATAPI)
             ret = (ret & ~DSC_STAT) | (ide->service << 4);
+        else if ((ide->type == IDE_HDD) && !ide->removable && hdd_audio_drive_busy(ide->hdd_num))
+            ret = BSY_STAT; /* Spinning up or recalibrating. */
     }
 
     return ret;

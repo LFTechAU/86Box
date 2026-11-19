@@ -28,6 +28,7 @@
 #include <86box/ini.h>
 #include <86box/mem.h>
 #include <86box/rom.h>
+#include <86box/timer.h>
 
 /* Maximum number of simultaneous seek sounds per HDD */
 #define HDD_MAX_SEEK_VOICES_PER_HDD 8
@@ -50,7 +51,30 @@ typedef struct {
     int                  spindle_pos;
     int                  spindle_transition_pos;
     hdd_seek_voice_t     seek_voices[HDD_MAX_SEEK_VOICES_PER_HDD];
+    /* Drive mechanics: power-on spin-up wait and recalibration clicks. */
+    pc_timer_t           mech_timer;
+    int                  mech_phase;      /* HDD_MECH_* */
+    int                  mech_clicks;     /* Clicks still to play */
+    int                  mech_click_num;  /* Clicks played so far in this run */
+    double               mech_click_us;   /* Spacing between clicks */
+    int                  mech_busy;       /* Drive reports BSY until the run ends */
+    int                  mech_srst_seen;  /* An SRST has been seen since power-on */
+    uint64_t             mech_srst_tsc;   /* When the last SRST was seen */
 } hdd_audio_drive_state_t;
+
+static void hdd_audio_mech_power_on(hdd_audio_drive_state_t *state);
+
+enum {
+    HDD_MECH_IDLE = 0,
+    HDD_MECH_SPINUP,
+    HDD_MECH_CLICKS
+};
+
+/* Clicks played after spin-up while the heads calibrate, and after a
+   soft reset (SRST) of a drive that is already spinning. */
+#define HDD_MECH_POWERON_CLICKS 8
+#define HDD_MECH_SRST_CLICKS    4
+#define HDD_MECH_SRST_QUIET_US  10000000.0
 
 /* Audio samples structure for a profile */
 typedef struct {
@@ -496,7 +520,180 @@ hdd_audio_reset(void)
     /* Start spindle motors for all active drives */
     for (int i = 0; i < active_drive_count; i++) {
         hdd_audio_spinup_drive(drive_states[i].hdd_index);
+        hdd_audio_mech_power_on(&drive_states[i]);
     }
+}
+
+/* Start a seek voice regardless of the minimum spacing. */
+static void
+hdd_audio_play_click(hdd_audio_drive_state_t *state, float scale)
+{
+    int                  profile_id = state->profile_id;
+    hdd_audio_samples_t *samples;
+
+    if ((profile_id <= 0) || (profile_id >= audio_profile_count) || !hdd_audio_mutex)
+        return;
+
+    samples = &profile_samples[profile_id];
+    if (!samples->seek_buffer || (samples->seek_samples == 0))
+        return;
+
+    thread_wait_mutex(hdd_audio_mutex);
+    for (int v = 0; v < HDD_MAX_SEEK_VOICES_PER_HDD; v++) {
+        if (!state->seek_voices[v].active) {
+            state->seek_voices[v].active     = 1;
+            state->seek_voices[v].position   = 0;
+            state->seek_voices[v].volume     = samples->seek_volume * scale;
+            state->seek_voices[v].profile_id = profile_id;
+            break;
+        }
+    }
+    thread_release_mutex(hdd_audio_mutex);
+}
+
+/* Only drives set to a real model (not RAM-disk speed) behave mechanically. */
+static int
+hdd_audio_mech_eligible(const hdd_audio_drive_state_t *state)
+{
+    return (state->profile_id > 0) && (state->profile_id < audio_profile_count) &&
+           (hdd[state->hdd_index].speed_preset != 0);
+}
+
+static void
+hdd_audio_mech_start_clicks(hdd_audio_drive_state_t *state, int clicks, double first_us,
+                            double spacing_us, int first_num, int busy)
+{
+    state->mech_phase     = HDD_MECH_CLICKS;
+    state->mech_clicks    = clicks;
+    state->mech_click_num = first_num;
+    state->mech_click_us  = spacing_us;
+    state->mech_busy      = busy;
+    timer_set_delay_u64(&state->mech_timer, (uint64_t) (first_us * TIMER_USEC));
+}
+
+static void
+hdd_audio_mech_timer(void *priv)
+{
+    hdd_audio_drive_state_t *state = (hdd_audio_drive_state_t *) priv;
+    double                   delay;
+
+    switch (state->mech_phase) {
+        case HDD_MECH_SPINUP:
+            /* Platters are at speed: the heads now calibrate. */
+            hdd_audio_mech_start_clicks(state, HDD_MECH_POWERON_CLICKS, 1.0, 70000.0, 0, 1);
+            break;
+
+        case HDD_MECH_CLICKS:
+            if (state->mech_clicks <= 0) {
+                state->mech_phase = HDD_MECH_IDLE;
+                state->mech_busy  = 0;
+                break;
+            }
+            /* Alternate a full and a softer click, like the heads
+               sweeping out and back. */
+            hdd_audio_play_click(state, (state->mech_click_num & 1) ? 0.75f : 1.0f);
+            state->mech_clicks--;
+            state->mech_click_num++;
+            delay = state->mech_click_us;
+            /* A short pause in the middle of a calibration run. */
+            if (state->mech_busy && (state->mech_click_num == 4) && (state->mech_clicks > 0))
+                delay += 180000.0;
+            timer_set_delay_u64(&state->mech_timer, (uint64_t) (delay * TIMER_USEC));
+            break;
+
+        default:
+            break;
+    }
+}
+
+/* Set up the power-on sequence: the drive is busy while it spins up,
+   then calibrates. Called on hard reset after the spindles start. */
+static void
+hdd_audio_mech_power_on(hdd_audio_drive_state_t *state)
+{
+    const hdd_audio_samples_t *samples;
+    double                     spinup_us;
+
+    if (state->mech_timer.callback)
+        timer_stop(&state->mech_timer);
+    timer_add(&state->mech_timer, hdd_audio_mech_timer, state, 0);
+
+    state->mech_phase     = HDD_MECH_IDLE;
+    state->mech_busy      = 0;
+    state->mech_clicks    = 0;
+    state->mech_srst_seen = 0;
+
+    if (!hdd_audio_mech_eligible(state))
+        return;
+
+    samples   = &profile_samples[state->profile_id];
+    spinup_us = 4000000.0;
+    if (samples->spindle_start_buffer && (samples->spindle_start_samples > 0))
+        spinup_us = (double) samples->spindle_start_samples * 1000000.0 / 48000.0;
+
+    state->mech_phase = HDD_MECH_SPINUP;
+    state->mech_busy  = 1;
+    timer_set_delay_u64(&state->mech_timer, (uint64_t) (spinup_us * TIMER_USEC));
+}
+
+/* Returns non-zero while the drive is spinning up or calibrating. */
+int
+hdd_audio_drive_busy(int hdd_index)
+{
+    const hdd_audio_drive_state_t *state = hdd_audio_find_drive_state(hdd_index);
+
+    return state && state->mech_busy;
+}
+
+/* Soft reset (SRST): a spinning drive recalibrates its heads. */
+void
+hdd_audio_drive_srst(int hdd_index)
+{
+    hdd_audio_drive_state_t *state = hdd_audio_find_drive_state(hdd_index);
+    double                   quiet_us;
+
+    if (!state || !hdd_audio_mech_eligible(state) || !state->mech_timer.callback)
+        return;
+
+    /* Software resets come in clusters (the BIOS at POST, then DOS and
+       drivers resetting through INT 13h); only recalibrate audibly when
+       the drive has been left alone for a while, as after a warm boot. */
+    quiet_us = state->mech_srst_seen ?
+               ((double) (tsc - state->mech_srst_tsc) * 4294967296.0 / (double) TIMER_USEC) : 1e12;
+    state->mech_srst_seen = 1;
+    state->mech_srst_tsc  = tsc;
+    if (quiet_us < HDD_MECH_SRST_QUIET_US)
+        return;
+
+    /* Still spinning up or calibrating: the reset changes nothing. */
+    if (state->mech_busy)
+        return;
+
+    hdd_audio_mech_start_clicks(state, HDD_MECH_SRST_CLICKS, 1.0, 60000.0, 0, 1);
+}
+
+/* A long seek on a real drive is heard as a short run of clicks rather
+   than a single tick. */
+static void
+hdd_audio_long_seek(hdd_audio_drive_state_t *state, const hard_disk_t *hdd_drive, uint32_t cylinder_diff)
+{
+    uint32_t cyls = hdd_drive->phy_cyl;
+    int      extra;
+    double   spacing;
+
+    if (!hdd_audio_mech_eligible(state) || !state->mech_timer.callback ||
+        (state->mech_phase != HDD_MECH_IDLE) || (cyls < 64))
+        return;
+
+    if (cylinder_diff < (cyls / 4))
+        return;
+
+    extra   = (cylinder_diff >= ((cyls * 3) / 4)) ? 2 : 1;
+    spacing = hdd_drive->full_stroke_usec / 3.0;
+    if (spacing < 8000.0)
+        spacing = 8000.0;
+
+    hdd_audio_mech_start_clicks(state, extra, spacing, spacing, 1, 0);
 }
 
 void
@@ -565,6 +762,7 @@ hdd_audio_seek(hard_disk_t *hdd_drive, uint32_t new_cylinder)
             drive_state->seek_voices[v].volume = samples->seek_volume;
             drive_state->seek_voices[v].profile_id = profile_id;
             thread_release_mutex(hdd_audio_mutex);
+            hdd_audio_long_seek(drive_state, hdd_drive, cylinder_diff);
             return;
         }
     }
