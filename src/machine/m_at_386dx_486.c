@@ -142,6 +142,7 @@ static const device_config_t opti495_ami_config[] = {
             { .files_no = 0 }
         },
     },
+    MACHINE_CACHE_KB_CONFIG(64),
     MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -177,7 +178,8 @@ machine_at_opti495_ami_init(const machine_t *model)
 
     machine_at_common_init(model);
 
-    device_add(&opti495sx_device);
+    device_add_params(&opti495sx_device,
+                      (void *) (uintptr_t) (opti495sx_device.local | 0x100 | ((uint32_t) machine_get_config_int("cache_size") << 16)));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */

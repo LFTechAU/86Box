@@ -39,6 +39,7 @@ typedef struct opti495_t {
     uint8_t ram_mode;
     uint8_t regs[256];
     uint8_t scratch[2];
+    int     cache_kb; /* the board's cache size, -1: as the BIOS sets it */
 
     mem_mapping_t ram_mapping;
 } opti495_t;
@@ -393,6 +394,17 @@ opti495_write(uint16_t addr, uint8_t val, void *priv)
             if ((dev->idx >= 0x20) && (dev->idx <= dev->max)) {
                 opti495_log("[%04X:%08X] [W] dev->regs[%04X] = %02X\n", CS, cpu_state.pc, dev->idx, val);
 
+                /* Register 21h: bit 4 cache on, bits 3:2 its size (64 KB << n).
+                   The board's cache size, when given, overrides what the BIOS
+                   found; a board without cache cannot turn it on. */
+                if ((dev->idx == 0x21) && (dev->cache_kb >= 0)) {
+                    if (dev->cache_kb == 0)
+                        val &= ~0x10;
+                    else
+                        val = (val & ~0x0c) | ((dev->cache_kb >= 512) ? 0x0c : (dev->cache_kb >= 256) ? 0x08 :
+                                                                     (dev->cache_kb >= 128) ? 0x04 : 0x00);
+                }
+
                 dev->regs[dev->idx] = val & masks[dev->type][dev->idx - 0x20];
                 if ((dev->type == OPTI493) && (dev->idx == 0x20))
                     dev->regs[dev->idx] |= 0x40;
@@ -501,14 +513,17 @@ opti495_init(const device_t *info)
     io_sethandler(0x0022, 0x0001, opti495_read, NULL, NULL, opti495_write, NULL, NULL, dev);
     io_sethandler(0x0024, 0x0001, opti495_read, NULL, NULL, opti495_write, NULL, NULL, dev);
 
-    if (info->local == OPTI493)
+    if ((info->local & 0xff) == OPTI493)
         io_sethandler(0x0023, 0x0001, opti495_read, NULL, NULL, opti495_write, NULL, NULL, dev);
 
     dev->scratch[0] = dev->scratch[1] = 0xff;
 
-    dev->type = info->local;
+    dev->type = info->local & 0xff;
 
-    if (info->local >= OPTI495) {
+    /* Bit 8 set: the board's cache size in KB is in bits 31:16. */
+    dev->cache_kb = (info->local & 0x100) ? (int) ((info->local >> 16) & 0xffff) : -1;
+
+    if (dev->type >= OPTI495) {
         /* 85C495 */
         dev->max = 0x29;
         dev->regs[0x20] = 0x02;
