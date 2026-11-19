@@ -164,6 +164,8 @@ typedef struct atkbc_t {
        to a function such as the external cache enable. */
     void (*ami_p22_p23_hook)(void *priv, int set);
     void *ami_p22_p23_priv;
+    void (*ami_line_hook)(void *priv, uint8_t cmd);
+    void *ami_line_priv;
 } atkbc_t;
 
 /* Keyboard controller ports. */
@@ -1234,6 +1236,8 @@ write_cmd_ami(void *priv, uint8_t val)
                 dev->p1 &= ~(1 << (val & 0x03));
             kbc_delay_to_ob(dev, dev->ob, 0, 0x00);
             dev->pending++;
+            if (dev->ami_line_hook != NULL)
+                dev->ami_line_hook(dev->ami_line_priv, val);
             ret = 0;
             break;
 
@@ -1248,6 +1252,8 @@ write_cmd_ami(void *priv, uint8_t val)
             else
                 kbc_delay_to_ob(dev, dev->ob, 0, 0x00);
             dev->pending++;
+            if (dev->ami_line_hook != NULL)
+                dev->ami_line_hook(dev->ami_line_priv, val);
             ret = 0;
             break;
 
@@ -1259,6 +1265,8 @@ write_cmd_ami(void *priv, uint8_t val)
                 kbc_delay_to_ob(dev, dev->ob, 0, 0x00);
                 dev->pending++;
             }
+            if (dev->ami_line_hook != NULL)
+                dev->ami_line_hook(dev->ami_line_priv, val);
             ret = 0;
             break;
 
@@ -1269,6 +1277,8 @@ write_cmd_ami(void *priv, uint8_t val)
                 write_p2(dev, dev->p2 | (4 << (val & 0x01)));
             kbc_delay_to_ob(dev, dev->ob, 0, 0x00);
             dev->pending++;
+            if (dev->ami_line_hook != NULL)
+                dev->ami_line_hook(dev->ami_line_priv, val);
             ret = 0;
             break;
 
@@ -3046,6 +3056,17 @@ kbc_at_set_ami_p22_p23_hook(void *priv, void (*hook)(void *priv, int set), void 
 
     dev->ami_p22_p23_hook = hook;
     dev->ami_p22_p23_priv = hook_priv;
+}
+
+/* Called with the command after the AMI commands B0h-B5h and B8h-BDh, which
+   set the keyboard controller's P10-P13 and P22-P23 lines low or high. */
+void
+kbc_at_set_ami_line_hook(void *priv, void (*hook)(void *priv, uint8_t cmd), void *hook_priv)
+{
+    atkbc_t *dev = (atkbc_t *) priv;
+
+    dev->ami_line_hook = hook;
+    dev->ami_line_priv = hook_priv;
 }
 
 static void *

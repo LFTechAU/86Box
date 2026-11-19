@@ -93,6 +93,9 @@ machine_at_cs4031_init(const machine_t *model)
     cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
     cpu_update_waitstates();
 
+    /* Turbo switch and Ctrl+Alt+minus/plus (CS4031 register 09h bit 0). */
+    device_add(&machine_deturbo_device);
+
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 
     if (fdc_current[0] == FDC_INTERNAL)
@@ -403,6 +406,9 @@ machine_at_isa486_init(const machine_t *model)
        pace of a real board's slower DRAM timing. */
     cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
     cpu_update_waitstates();
+
+    /* Turbo switch and Ctrl+Alt+minus/plus (85C401 register 67h bit 1). */
+    device_add(&machine_deturbo_device);
 
     return ret;
 }

@@ -264,6 +264,9 @@ extern void         kbc_at_set_p2_write_hook(void *priv,
                                                                    uint8_t new_p2),
                                              void *p2_priv);
 
+extern void         kbc_at_set_ami_line_hook(void *priv,
+                                             void (*hook)(void *priv, uint8_t cmd),
+                                             void *hook_priv);
 extern void         kbc_at_set_ami_p22_p23_hook(void *priv,
                                                 void (*hook)(void *priv, int set),
                                                 void *hook_priv);

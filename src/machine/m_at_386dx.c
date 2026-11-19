@@ -333,6 +333,18 @@ const device_t ecs386v_device = {
     .config        = ecs386v_config
 };
 
+/* Ctrl+Alt+minus/plus: the AMI BIOS switches the board's de-turbo line,
+   P13, with keyboard controller command B3h (de-turbo) and
+   BBh (turbo). */
+static void
+ecs386v_deturbo(UNUSED(void *priv), uint8_t cmd)
+{
+    if (cmd == 0xb3)
+        machine_soft_deturbo = 1;
+    else if (cmd == 0xbb)
+        machine_soft_deturbo = 0;
+}
+
 int
 machine_at_ecs386v_init(const machine_t *model)
 {
@@ -355,7 +367,9 @@ machine_at_ecs386v_init(const machine_t *model)
     cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
     cpu_update_waitstates();
 
-    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+    kbc_at_set_ami_line_hook(device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params),
+                             ecs386v_deturbo, NULL);
+    device_add(&machine_deturbo_device);
 
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);

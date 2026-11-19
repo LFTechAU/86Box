@@ -28,6 +28,7 @@
 #include <86box/plat_unused.h>
 #include <86box/port_92.h>
 #include <86box/chipset.h>
+#include <86box/machine.h>
 
 typedef struct cs4031_t {
     uint8_t    index;
@@ -91,6 +92,13 @@ cs4031_write(uint16_t addr, uint8_t val, void *priv)
 
                 case 0x07:
                     dev->regs[dev->index] = val & 0x0f;
+                    break;
+
+                case 0x09:
+                    /* The AMI BIOS sets bit 0 on Ctrl+Alt+minus (de-turbo) and
+                       clears it on Ctrl+Alt+plus. */
+                    dev->regs[dev->index] = val;
+                    machine_soft_deturbo  = val & 0x01;
                     break;
 
                 case 0x10:

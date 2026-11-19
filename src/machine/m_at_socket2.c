@@ -189,7 +189,10 @@ machine_at_ali1429_init(const machine_t *model)
 
     machine_at_common_init(model);
 
-    device_add_params(&ali1429_device, machine_ali1429_cache_params(machine_get_config_int("cache_size")));
+    /* Register 23h bit 1 is this BIOS's de-turbo (bit 17). */
+    device_add_params(&ali1429_device,
+                      (void *) ((uintptr_t) machine_ali1429_cache_params(machine_get_config_int("cache_size")) | 0x20000));
+    device_add(&machine_deturbo_device);
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 

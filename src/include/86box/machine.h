@@ -437,6 +437,10 @@ extern void            machine_init(void);
 extern volatile int    machine_turbo_switch;
 extern void            machine_set_turbo_switch_present(int present);
 extern int             machine_has_turbo_switch(void);
+/* Generic de-turbo (machine_deturbo_device) for boards whose chipset has no
+   emulated one: the Turbo switch, plus Ctrl+Alt+minus through
+   machine_soft_deturbo, which the board's de-turbo register or line sets. */
+extern volatile int    machine_soft_deturbo;
 /* Speed the chipset lets the CPU run at, in percent (de-turbo lowers it),
    for the front panel speed display. */
 extern volatile int    machine_speed_pct;
@@ -995,6 +999,7 @@ extern const device_t  vli486sv2g_device;
     }
 extern const device_t  av4_device;
 extern const device_t  isa486_device;
+extern const device_t  machine_deturbo_device;
 extern const device_t  ali1429_mach_device;
 extern const device_t  ecs386v_device;
 extern const device_t  greenb_device;

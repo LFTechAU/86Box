@@ -193,6 +193,18 @@ const device_t greenb_device = {
     .config        = greenb_config
 };
 
+/* Ctrl+Alt+minus/plus: the AMI BIOS switches the board's de-turbo line,
+   P22, with keyboard controller command B4h (de-turbo) and
+   BCh (turbo). */
+static void
+greenb_deturbo(UNUSED(void *priv), uint8_t cmd)
+{
+    if (cmd == 0xb4)
+        machine_soft_deturbo = 1;
+    else if (cmd == 0xbc)
+        machine_soft_deturbo = 0;
+}
+
 int
 machine_at_greenb_init(const machine_t *model)
 {
@@ -220,7 +232,9 @@ machine_at_greenb_init(const machine_t *model)
     cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
     cpu_update_waitstates();
 
-    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+    kbc_at_set_ami_line_hook(device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params),
+                             greenb_deturbo, NULL);
+    device_add(&machine_deturbo_device);
 
     return ret;
 }

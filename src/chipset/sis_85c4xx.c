@@ -832,8 +832,12 @@ sis_85c4xx_out(uint16_t port, uint8_t val, void *priv)
                         break;
 
                     case 0x07:
-                        if (dev->reg_base == 0x60)
+                        /* 85C401 register 67h bit 1: the AMI BIOS sets it on
+                           Ctrl+Alt+minus (de-turbo), clears it on Ctrl+Alt+plus. */
+                        if (dev->reg_base == 0x60) {
                             sis_85c401_cache_sizing_update(dev);
+                            machine_soft_deturbo = !!(val & 0x02);
+                        }
                         else if (!dev->is_471 && (valxor & 0x01))
                             sis_85c46x_cache_sizing(dev, val & 0x01);
                         break;

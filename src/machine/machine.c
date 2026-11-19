@@ -14,6 +14,7 @@
  *          Copyright 2016-2020 Miran Grca.
  *          Copyright 2017-2020 Fred N. van Kempen.
  */
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -159,6 +160,73 @@ machine_get_cpu_mhz(void)
     return (c != NULL) ? (int) (c->rspeed / 1000000) : 0;
 }
 
+/* Software de-turbo (Ctrl+Alt+minus) for boards using the generic de-turbo
+   below, set from what the BIOS writes (a chipset register or a keyboard
+   controller line). */
+volatile int machine_soft_deturbo = 0;
+
+/* As the SiS 85C460/461 de-turbo (sis_85c4xx.c): the processor clock
+   control throttle holds the CPU two parts of every three, so it runs at
+   1/3 speed against the timers and the clock, while the front panel Turbo
+   switch is off or the BIOS has turned de-turbo on. The timer polls, which
+   also picks up the switch from the user interface thread. */
+static void
+machine_deturbo_timer(void *priv)
+{
+    pc_timer_t *timer  = (pc_timer_t *) priv;
+    int         active = machine_soft_deturbo || !machine_turbo_switch;
+    int         run    = active ? 1 : 0;
+
+    machine_speed_pct = active ? 33 : 100;
+
+    if (cpu_throttle_run != run) {
+        cpu_throttle_period = 3;
+        cpu_throttle_break  = 0;
+        cpu_throttle_run    = run;
+    }
+
+    timer_advance_u64(timer, (uint64_t) (1000.0 * TIMER_USEC));
+}
+
+static void *
+machine_deturbo_init(UNUSED(const device_t *info))
+{
+    pc_timer_t *timer = (pc_timer_t *) calloc(1, sizeof(pc_timer_t));
+
+    machine_soft_deturbo = 0;
+    machine_set_turbo_switch_present(1);
+
+    timer_add(timer, machine_deturbo_timer, timer, 0);
+    timer_set_delay_u64(timer, (uint64_t) (1000.0 * TIMER_USEC));
+
+    return timer;
+}
+
+static void
+machine_deturbo_close(void *priv)
+{
+    pc_timer_t *timer = (pc_timer_t *) priv;
+
+    timer_disable(timer);
+    cpu_throttle_run  = 0;
+    machine_speed_pct = 100;
+    free(timer);
+}
+
+const device_t machine_deturbo_device = {
+    .name          = "Turbo switch",
+    .internal_name = "machine_deturbo",
+    .flags         = 0,
+    .local         = 0,
+    .init          = machine_deturbo_init,
+    .close         = machine_deturbo_close,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = NULL
+};
+
 void
 machine_set_turbo_switch_present(int present)
 {
@@ -178,6 +246,7 @@ machine_init(void)
     cpu_mem_extra_cycles = 0;
     turbo_switch_present = 0;
     machine_speed_pct    = 100;
+    machine_soft_deturbo = 0;
 
     machine_set_p1_default(machines[machine].kbc_p1);
     machine_set_ps2();
