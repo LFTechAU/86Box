@@ -59,7 +59,63 @@ typedef struct contaq_82c59x_t {
     uint8_t smi_status[2];
 
     smram_t *smram[2];
+
+    /* Cache data SRAM, for the BIOS's cache sizing (register 11h bit 4). */
+    int           has_cache_cfg;
+    uint8_t      *cache_sram;
+    uint32_t      cache_sram_mask;
+    mem_mapping_t cache_sram_mapping;
 } contaq_82c59x_t;
+
+/* With register 11h bits 4 and 1 set (the BIOS writes 5Eh: cache on, 512 KB,
+   bit 4 for sizing), the AMI BIOS writes a pattern at 256 KB
+   and reads where it reappears (320, 384 or 512 KB): the cache data SRAM
+   answers every cycle and wraps at its size. Without SRAM the bus floats. */
+static uint8_t
+contaq_82c59x_cache_sram_read(uint32_t addr, void *priv)
+{
+    const contaq_82c59x_t *dev = (contaq_82c59x_t *) priv;
+
+    if (dev->cache_sram == NULL)
+        return 0xff;
+
+    return dev->cache_sram[addr & dev->cache_sram_mask];
+}
+
+static uint16_t
+contaq_82c59x_cache_sram_readw(uint32_t addr, void *priv)
+{
+    return contaq_82c59x_cache_sram_read(addr, priv) | (contaq_82c59x_cache_sram_read(addr + 1, priv) << 8);
+}
+
+static uint32_t
+contaq_82c59x_cache_sram_readl(uint32_t addr, void *priv)
+{
+    return contaq_82c59x_cache_sram_readw(addr, priv) | (contaq_82c59x_cache_sram_readw(addr + 2, priv) << 16);
+}
+
+static void
+contaq_82c59x_cache_sram_write(uint32_t addr, uint8_t val, void *priv)
+{
+    const contaq_82c59x_t *dev = (contaq_82c59x_t *) priv;
+
+    if (dev->cache_sram != NULL)
+        dev->cache_sram[addr & dev->cache_sram_mask] = val;
+}
+
+static void
+contaq_82c59x_cache_sram_writew(uint32_t addr, uint16_t val, void *priv)
+{
+    contaq_82c59x_cache_sram_write(addr, val & 0xff, priv);
+    contaq_82c59x_cache_sram_write(addr + 1, val >> 8, priv);
+}
+
+static void
+contaq_82c59x_cache_sram_writel(uint32_t addr, uint32_t val, void *priv)
+{
+    contaq_82c59x_cache_sram_writew(addr, val & 0xffff, priv);
+    contaq_82c59x_cache_sram_writew(addr + 2, val >> 16, priv);
+}
 
 static void
 contaq_82c59x_isa_speed_recalc(contaq_82c59x_t *dev)
@@ -195,6 +251,13 @@ contaq_82c59x_write(uint16_t addr, uint8_t val, void *priv)
                     break;
 
                 case 0x11:
+                    if (dev->has_cache_cfg && (((dev->regs[0x11] & 0x12) == 0x12) != ((val & 0x12) == 0x12))) {
+                        if ((val & 0x12) == 0x12)
+                            mem_mapping_enable(&dev->cache_sram_mapping);
+                        else
+                            mem_mapping_disable(&dev->cache_sram_mapping);
+                        flushmmucache();
+                    }
                     dev->regs[dev->index] = val;
                     cpu_cache_int_enabled = !!(val & 0x01);
                     cpu_update_waitstates();
@@ -314,6 +377,7 @@ contaq_82c59x_close(void *priv)
         smram_del(dev->smram[0]);
     }
 
+    free(dev->cache_sram);
     free(dev);
 }
 
@@ -322,7 +386,25 @@ contaq_82c59x_init(const device_t *info)
 {
     contaq_82c59x_t *dev = (contaq_82c59x_t *) calloc(1, sizeof(contaq_82c59x_t));
 
-    dev->green = info->local;
+    dev->green = info->local & 0x01;
+
+    /* Bit 8 set: the board's cache size is in bits 31:16, in KB (0: none). */
+    if (info->local & 0x100) {
+        uint32_t kb = (info->local >> 16) & 0xffff;
+
+        dev->has_cache_cfg = 1;
+        if (kb) {
+            dev->cache_sram      = (uint8_t *) calloc(1, kb << 10);
+            dev->cache_sram_mask = (kb << 10) - 1;
+        }
+        mem_mapping_add(&dev->cache_sram_mapping, 0x00000000, 0x000a0000,
+                        contaq_82c59x_cache_sram_read, contaq_82c59x_cache_sram_readw,
+                        contaq_82c59x_cache_sram_readl,
+                        contaq_82c59x_cache_sram_write, contaq_82c59x_cache_sram_writew,
+                        contaq_82c59x_cache_sram_writel,
+                        NULL, MEM_MAPPING_INTERNAL, dev);
+        mem_mapping_disable(&dev->cache_sram_mapping);
+    }
 
     io_sethandler(0x0022, 0x0002, contaq_82c59x_read, NULL, NULL, contaq_82c59x_write, NULL, NULL, dev);
 

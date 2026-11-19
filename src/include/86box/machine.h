@@ -952,6 +952,21 @@ extern const device_t  vli486sv2g_device;
     }
 #define machine_ali1429_cache_params(code)                                            \
     ((void *) (uintptr_t) (((code) < 0) ? 0x10000 : (0x8000 | ((code) << 8))))
+/* External cache size in KB (0: none), for boards whose chipset emulates
+   the cache data SRAM for the BIOS's cache sizing. */
+#define MACHINE_CACHE_KB_CONFIG(def)                                                  \
+    {                                                                                 \
+        .name        = "cache_size",                                                  \
+        .description = "External cache",                                              \
+        .type        = CONFIG_SELECTION,                                              \
+        .default_int = def,                                                           \
+        .selection   = { { .description = "None", .value = 0 },                       \
+                         { .description = "64 KB", .value = 64 },                     \
+                         { .description = "128 KB", .value = 128 },                   \
+                         { .description = "256 KB", .value = 256 },                   \
+                         { .description = "512 KB", .value = 512 },                   \
+                         { .description = "" } }                                      \
+    }
 #define MACHINE_DRAM_EXTRA_CONFIG(def)                                                \
     {                                                                                 \
         .name        = "dram_extra",                                                  \

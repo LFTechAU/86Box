@@ -173,6 +173,7 @@ machine_at_4gpv5_init(const machine_t *model)
 static const device_config_t greenb_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 01/10/94 by LFTech"),
+    MACHINE_CACHE_KB_CONFIG(256),
     MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -210,7 +211,9 @@ machine_at_greenb_init(const machine_t *model)
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);
 
-    device_add(&contaq_82c597_device);
+    /* The board's cache size, for the BIOS's cache sizing (contaq_82c59x.c). */
+    device_add_params(&contaq_82c597_device,
+                      (void *) (uintptr_t) (0x101 | ((uint32_t) machine_get_config_int("cache_size") << 16)));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
