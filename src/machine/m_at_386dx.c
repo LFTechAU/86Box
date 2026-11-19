@@ -556,6 +556,13 @@ machine_at_opti291wb_init(const machine_t *model)
     kbc = device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
     kbc_at_set_ami_p22_p23_hook(kbc, opti291wb_cache_hook, NULL);
 
+    /* Port 92h fast A20. With "Fast Gate A20" on in Advanced CMOS Setup
+       (CMOS 2Dh bit 1), the BIOS opens A20 through port 92h for INT 15h
+       AH=87h block moves; without it the copy wraps and overwrites the
+       interrupt vectors at 0000:0000, which then makes HIMEM's A20 test
+       fail. */
+    device_add(&port_92_device);
+
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);
 
