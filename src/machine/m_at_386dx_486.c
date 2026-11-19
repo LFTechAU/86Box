@@ -142,7 +142,7 @@ static const device_config_t opti495_ami_config[] = {
             { .files_no = 0 }
         },
     },
-    MACHINE_DRAM_EXTRA_CONFIG(1),
+    MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };

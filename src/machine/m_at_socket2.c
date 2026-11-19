@@ -154,7 +154,7 @@ machine_at_ali1429_common_init(const machine_t *model, int is_green)
 static const device_config_t ali1429_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 04/04/93 by LFTech"),
-    MACHINE_DRAM_EXTRA_CONFIG(1),
+    MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };

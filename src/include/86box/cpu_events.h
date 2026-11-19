@@ -80,5 +80,6 @@ extern cpu_events_t cpu_events;
    read past the A20 gate (mem_a20_reset_line). */
 #define CPU_OVERRIDE_BOARD      1
 #define CPU_OVERRIDE_RESET_LINE 2
+#define CPU_OVERRIDE_DRAM_WAIT  4
 
 #endif /*EMU_CPU_EVENTS_H*/

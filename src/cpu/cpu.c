@@ -5325,6 +5325,14 @@ cpu_update_waitstates(void)
             cpu_cycles_write_l += (cpu_16bitbus ? 2 : 1) * extra;
         }
 
+        /* A 386-class CPU has no CR0.CD for the recompiler to see, so with
+           the extra DRAM wait in force run it interpreted, where the wait
+           is charged on every uncached access. */
+        if (!is486 && cpu_mem_extra_cycles && !cpu_cache_int_enabled && !cpu_cache_ext_enabled)
+            cpu_override_dynarec |= CPU_OVERRIDE_DRAM_WAIT;
+        else
+            cpu_override_dynarec &= ~CPU_OVERRIDE_DRAM_WAIT;
+
         if (is486)
             cpu_prefetch_cycles = (cpu_prefetch_cycles * 11) / 16;
 

@@ -173,7 +173,7 @@ machine_at_4gpv5_init(const machine_t *model)
 static const device_config_t greenb_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 01/10/94 by LFTech"),
-    MACHINE_DRAM_EXTRA_CONFIG(1),
+    MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
