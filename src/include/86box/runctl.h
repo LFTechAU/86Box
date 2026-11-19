@@ -49,6 +49,7 @@ typedef enum {
     RUN_PAUSE_SYNC    = 1 << 6, /* quiesce the CPU around a device state change */
     RUN_PAUSE_HOLD    = 1 << 7, /* automation hold (not wired up yet) */
     RUN_PAUSE_DEBUG   = 1 << 8, /* GDB stub stop (not wired up yet) */
+    RUN_PAUSE_POWER   = 1 << 9, /* front panel power switch is off */
 } run_pause_t;
 
 /* How the CPU thread paces emulated time against host time. */

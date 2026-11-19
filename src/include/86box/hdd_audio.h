@@ -75,6 +75,9 @@ extern void hdd_audio_drive_srst(int hdd_index);
 extern void hdd_audio_spindown_wait(void);
 extern void hdd_audio_power_on_hold(void);
 extern volatile int hdd_audio_closing;
+extern volatile int hdd_audio_reset_button;
+extern void hdd_audio_power_off(void);
+extern void hdd_audio_power_on(void);
 
 /* Per-drive spindle control */
 extern void hdd_audio_spinup_drive(int hdd_index);

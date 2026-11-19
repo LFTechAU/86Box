@@ -2133,6 +2133,40 @@ pc_reset_hard(void)
     hard_reset_pending = 1;
 }
 
+/* The front panel. */
+int pc_powered_off = 0;
+
+/* The Reset button: a hard reset with the drives left spinning. */
+void
+pc_reset_button(void)
+{
+    if (pc_powered_off)
+        return;
+    hdd_audio_reset_button = 1;
+    pc_reset_hard();
+}
+
+/* The power switch. Off stops the machine with a blank screen while the
+   drives spin down; on is a hard reset from cold. */
+void
+pc_power_switch(int on)
+{
+    if (!on == !!pc_powered_off)
+        return;
+
+    if (!on) {
+        runctl_pause_wait(RUN_PAUSE_POWER);
+        pc_powered_off = 1;
+        hdd_audio_power_off();
+        video_blank_monitors();
+    } else {
+        pc_powered_off = 0;
+        hdd_audio_power_on();
+        pc_reset_hard();
+        runctl_resume(RUN_PAUSE_POWER);
+    }
+}
+
 void
 pc_close(UNUSED(thread_t *ptr))
 {

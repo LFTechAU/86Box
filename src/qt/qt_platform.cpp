@@ -820,9 +820,12 @@ run_state_changed(void)
             plat_mouse_capture(0);
 
         QString title      = main_window->getTitle();
-        QString pausedText = QObject::tr(" - PAUSED");
-        if (title.contains(pausedText))
-            title = title.left(title.indexOf(pausedText));
+        for (const QString &t : { QObject::tr(" - PAUSED"), QObject::tr(" - POWERED OFF") }) {
+            if (title.contains(t))
+                title = title.left(title.indexOf(t));
+        }
+        const QString pausedText = (runctl_pause_reasons() & RUN_PAUSE_POWER) ? QObject::tr(" - POWERED OFF") :
+                                                                                 QObject::tr(" - PAUSED");
         emit main_window->setTitle(paused ? title.append(pausedText) : title);
     }
 

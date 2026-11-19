@@ -93,7 +93,7 @@ ui_emu_status(int speed_percent)
         str += QStringLiteral("% - ") % main_window->mouseStringUncaptured;
     /* A sample taken just before a pause may arrive after it. */
     if (runctl_state() == RUN_PAUSED)
-        str += QObject::tr(" - PAUSED");
+        str += (runctl_pause_reasons() & RUN_PAUSE_POWER) ? QObject::tr(" - POWERED OFF") : QObject::tr(" - PAUSED");
 
     emit main_window->setTitle(str);
 }

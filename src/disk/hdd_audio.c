@@ -66,6 +66,7 @@ typedef struct {
 
 static void hdd_audio_mech_power_on(hdd_audio_drive_state_t *state, double extra_us);
 static void hdd_audio_spindle_stopped(hdd_audio_drive_state_t *state);
+static void hdd_audio_mech_warm_reset(hdd_audio_drive_state_t *state);
 static int  hdd_audio_mech_eligible(const hdd_audio_drive_state_t *state);
 
 enum {
@@ -111,9 +112,14 @@ static int                     active_drive_count = 0;
 
 static mutex_t *hdd_audio_mutex = NULL;
 
-/* Set while the drives spin down at exit, so the HDD sound thread keeps
-   rendering although the machine has stopped. */
+/* Set while the drives spin down at exit or with the power switched off,
+   so the HDD sound thread keeps rendering although the machine has
+   stopped. */
 volatile int hdd_audio_closing = 0;
+
+/* Set by the front panel Reset button before its hard reset: the drives
+   keep spinning through a reset, unlike a power cycle. */
+volatile int hdd_audio_reset_button = 0;
 
 /* Set once the machine has been powered on by the first hard reset. */
 static int hdd_audio_powered = 0;
@@ -517,12 +523,23 @@ hdd_audio_reset(void)
     /* Remember which drives were spinning: a hard reset is a power cycle,
        so they spin down before spinning up again. */
     int was_spinning[HDD_NUM];
-    for (int i = 0; i < HDD_NUM; i++)
+    int was_running[HDD_NUM];
+    int was_pos[HDD_NUM];
+    const int reset_button = hdd_audio_reset_button;
+    hdd_audio_reset_button = 0;
+    for (int i = 0; i < HDD_NUM; i++) {
         was_spinning[i] = -1;
+        was_running[i]  = 0;
+        was_pos[i]      = 0;
+    }
     for (int i = 0; hdd_audio_powered && (i < active_drive_count); i++) {
         if ((drive_states[i].spindle_state == HDD_SPINDLE_RUNNING) ||
             (drive_states[i].spindle_state == HDD_SPINDLE_STARTING))
             was_spinning[drive_states[i].hdd_index] = drive_states[i].profile_id;
+        if (drive_states[i].spindle_state == HDD_SPINDLE_RUNNING) {
+            was_running[drive_states[i].hdd_index] = 1;
+            was_pos[drive_states[i].hdd_index]     = drive_states[i].spindle_pos;
+        }
     }
 
     /* Reset all drive states */
@@ -602,7 +619,20 @@ hdd_audio_reset(void)
         double                     stop_us = 0.0;
 
         state->restart_after_stop = 0;
-        if ((was_spinning[state->hdd_index] == state->profile_id) && samples->spindle_stop_buffer &&
+        if (reset_button && was_running[state->hdd_index] &&
+            (was_spinning[state->hdd_index] == state->profile_id)) {
+            /* The Reset button: the platters keep turning and the heads
+               recalibrate, as after a soft reset. */
+            if (hdd_audio_mutex)
+                thread_wait_mutex(hdd_audio_mutex);
+            state->spindle_state = HDD_SPINDLE_RUNNING;
+            state->spindle_pos   = was_pos[state->hdd_index];
+            if (hdd_audio_mutex)
+                thread_release_mutex(hdd_audio_mutex);
+            hdd_audio_mech_warm_reset(state);
+            continue;
+        }
+        if (!reset_button && (was_spinning[state->hdd_index] == state->profile_id) && samples->spindle_stop_buffer &&
             (samples->spindle_stop_samples > 0) && hdd_audio_mutex) {
             thread_wait_mutex(hdd_audio_mutex);
             state->spindle_state          = HDD_SPINDLE_STOPPING;
@@ -736,6 +766,57 @@ hdd_audio_mech_power_on(hdd_audio_drive_state_t *state, double extra_us)
     state->mech_phase = HDD_MECH_SPINUP;
     state->mech_busy  = 1;
     timer_set_delay_u64(&state->mech_timer, (uint64_t) ((extra_us + spinup_us) * TIMER_USEC));
+}
+
+/* The Reset button: the drive stays spinning and recalibrates. */
+static void
+hdd_audio_mech_warm_reset(hdd_audio_drive_state_t *state)
+{
+    if (state->mech_timer.callback)
+        timer_stop(&state->mech_timer);
+    timer_add(&state->mech_timer, hdd_audio_mech_timer, state, 0);
+
+    state->mech_phase     = HDD_MECH_IDLE;
+    state->mech_busy      = 0;
+    state->mech_clicks    = 0;
+    state->mech_srst_seen = 0;
+
+    if (hdd_audio_mech_eligible(state) && (audio_profiles[state->profile_id].srst_clicks > 0))
+        hdd_audio_mech_start_clicks(state, audio_profiles[state->profile_id].srst_clicks,
+                                    1.0, 60000.0, 0, 1);
+}
+
+/* The power switch is turned off: every drive spins down. The machine is
+   stopped, so the HDD sound thread is kept rendering until it is turned
+   back on; the next hard reset then spins the drives up from rest. */
+void
+hdd_audio_power_off(void)
+{
+    hdd_audio_closing = 1;
+
+    for (int i = 0; i < active_drive_count; i++) {
+        if (hdd_audio_mutex)
+            thread_wait_mutex(hdd_audio_mutex);
+        drive_states[i].restart_after_stop = 0;
+        drive_states[i].mech_busy          = 0;
+        drive_states[i].mech_phase         = HDD_MECH_IDLE;
+        if ((drive_states[i].spindle_state == HDD_SPINDLE_RUNNING) ||
+            (drive_states[i].spindle_state == HDD_SPINDLE_STARTING)) {
+            drive_states[i].spindle_state          = HDD_SPINDLE_STOPPING;
+            drive_states[i].spindle_transition_pos = 0;
+        }
+        if (hdd_audio_mutex)
+            thread_release_mutex(hdd_audio_mutex);
+    }
+
+    hdd_audio_powered = 0;
+}
+
+/* The power switch is turned back on, just before the hard reset. */
+void
+hdd_audio_power_on(void)
+{
+    hdd_audio_closing = 0;
 }
 
 /* Spin every drive down and wait (in real time) for the spin-down

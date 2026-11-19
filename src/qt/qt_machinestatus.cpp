@@ -44,6 +44,7 @@ extern "C" {
 #include <86box/config.h>
 #include <86box/board_led.h>
 #include <86box/runctl.h>
+#include <86box/version.h>
 
 extern volatile int fdcinited;
 extern int          is_dynarec_active(void);
@@ -65,6 +66,8 @@ extern int          is_dynarec_active(void);
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QScreen>
+#include <QMessageBox>
+#include <QCheckBox>
 
 #include "qt_mediamenu.hpp"
 #include "qt_mainwindow.hpp"
@@ -76,11 +79,11 @@ extern int          is_dynarec_active(void);
 
 extern MainWindow *main_window;
 
-/* Front panel: the green power, yellow Turbo and red hard disk LEDs and
-   the two or three digit seven-segment speed display that 486-era cases
-   had. The display shows the CPU clock in MHz, or the clock the chipset
-   slows it to while de-turbo is on, unless its jumpers are set to fixed
-   readouts. */
+/* Front panel: the Power, Reset and Turbo buttons, the green power,
+   yellow Turbo and red hard disk LEDs and the two or three digit
+   seven-segment speed display that 486-era cases had. The display shows
+   the CPU clock in MHz, or the clock the chipset slows it to while
+   de-turbo is on, unless its jumpers are set to fixed readouts. */
 class SpeedDisplay : public QWidget {
 public:
     explicit SpeedDisplay(QWidget *parent = nullptr)
@@ -89,27 +92,72 @@ public:
         setFixedSize(sizeHint());
     }
 
-    QSize sizeHint() const override { return QSize(ledsW + 3 * digitW + 2 * pad + 2 * gap, 18); }
+    QSize sizeHint() const override { return QSize(buttonsW + ledsW + 3 * digitW + 2 * pad + 2 * gap, 18); }
 
-    void setState(const QString &txt, bool turbo, bool hdd)
+    void setState(const QString &txt, bool turbo, bool hdd, bool power, bool hasTurbo)
     {
-        if ((txt == text) && (turbo == isTurbo) && (hdd == hddOn))
+        if ((txt == text) && (turbo == isTurbo) && (hdd == hddOn) && (power == powerOn) &&
+            (hasTurbo == turboSwitch))
             return;
-        text    = txt;
-        isTurbo = turbo;
-        hddOn   = hdd;
+        text        = txt;
+        isTurbo     = turbo;
+        hddOn       = hdd;
+        powerOn     = power;
+        turboSwitch = hasTurbo;
         update();
     }
 
     std::function<void()>       onClick;
+    std::function<void()>       onPower;
+    std::function<void()>       onReset;
     std::function<void(QPoint)> onMenu;
 
 protected:
+    enum Button { None, Power, Reset, Turbo };
+
+    static Button buttonAt(int x)
+    {
+        if ((x >= powerX - 1) && (x < powerX + powerW + 1))
+            return Power;
+        if ((x >= resetX - 1) && (x < resetX + resetW + 1))
+            return Reset;
+        if ((x >= turboX - 1) && (x < turboX + turboW + 1))
+            return Turbo;
+        return None;
+    }
+
     void mousePressEvent(QMouseEvent *e) override
     {
-        if ((e->button() == Qt::RightButton) && onMenu)
+        if ((e->button() == Qt::RightButton) && onMenu) {
             onMenu(QCursor::pos());
-        else if ((e->button() == Qt::LeftButton) && onClick)
+            return;
+        }
+        if (e->button() != Qt::LeftButton)
+            return;
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+        const int x = e->position().toPoint().x();
+#else
+        const int x = e->pos().x();
+#endif
+        pressed = buttonAt(x);
+        if (pressed == None)
+            pressed = Turbo; /* The rest of the panel works the Turbo switch, as before. */
+        update();
+    }
+
+    void mouseReleaseEvent(QMouseEvent *e) override
+    {
+        if (e->button() != Qt::LeftButton)
+            return;
+        const Button b = pressed;
+        pressed        = None;
+        update();
+        /* Act on release, so the press is seen on the button. */
+        if ((b == Power) && onPower)
+            onPower();
+        else if ((b == Reset) && onReset)
+            onReset();
+        else if ((b == Turbo) && onClick)
             onClick();
     }
 
@@ -146,36 +194,83 @@ protected:
         }
     }
 
-protected:
+    /* A square push button in the case's grey plastic; latched buttons sit
+       further in, and so look darker. */
+    static void drawButton(QPainter &p, const QRectF &r, bool in, bool enabled)
+    {
+        p.setBrush(QColor(20, 20, 20));
+        p.drawRoundedRect(r.adjusted(-1, -1, 1, 1), 2, 2);
+        QColor face = in ? QColor(120, 120, 116) : QColor(190, 190, 184);
+        if (!enabled)
+            face = QColor(90, 90, 88);
+        p.setBrush(face);
+        p.drawRoundedRect(in ? r.adjusted(0.8, 0.8, -0.8, -0.8) : r, 1.5, 1.5);
+        if (!in && enabled) {
+            p.setBrush(QColor(230, 230, 224));
+            p.drawRect(QRectF(r.left() + 1, r.top() + 0.5, r.width() - 2, 1));
+        }
+    }
+
     void paintEvent(QPaintEvent *) override
     {
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setPen(Qt::NoPen);
+
+        /* The buttons, on the case's bezel. */
+        p.setBrush(QColor(70, 70, 68));
+        p.drawRoundedRect(QRectF(0, 0, buttonsW - 2, height()), 2, 2);
+        const qreal by = (height() - btnH) / 2.0;
+
+        /* Power: a large latching button, in while the machine is on. */
+        const QRectF pr(powerX, by, powerW, btnH);
+        drawButton(p, pr, powerOn || (pressed == Power), true);
+        p.setPen(QPen(QColor(40, 40, 40), 1.0));
+        p.setBrush(Qt::NoBrush);
+        const qreal cx = pr.center().x();
+        const qreal cy = pr.center().y() + 0.5;
+        p.drawArc(QRectF(cx - 3, cy - 3, 6, 6), 120 * 16, 300 * 16);
+        p.drawLine(QPointF(cx, cy - 4), QPointF(cx, cy - 0.5));
+        p.setPen(Qt::NoPen);
+
+        /* Reset: a small recessed momentary button. */
+        const QRectF rr(resetX, (height() - resetW) / 2.0, resetW, resetW);
+        p.setBrush(QColor(20, 20, 20));
+        p.drawEllipse(rr.adjusted(-1, -1, 1, 1));
+        p.setBrush((pressed == Reset) ? QColor(110, 30, 26) : QColor(170, 46, 40));
+        p.drawEllipse((pressed == Reset) ? rr.adjusted(0.8, 0.8, -0.8, -0.8) : rr);
+
+        /* Turbo: latching, in while Turbo is on. */
+        drawButton(p, QRectF(turboX, by, turboW, btnH), turboSwitch && (isTurbo != (pressed == Turbo)),
+                   turboSwitch);
+
+        /* The display panel. */
         p.setBrush(QColor(16, 6, 6));
-        p.drawRoundedRect(rect(), 2, 2);
+        p.drawRoundedRect(QRectF(buttonsW, 0, width() - buttonsW, height()), 2, 2);
 
         /* The LEDs, as on the case: power (green), Turbo (yellow), then hard
            disk (red). */
         const qreal ly = (height() - led) / 2.0;
-        p.setBrush(QColor(60, 230, 60));
-        p.drawEllipse(QRectF(pad, ly, led, led));
-        p.setBrush(isTurbo ? QColor(255, 220, 40) : QColor(60, 52, 10));
-        p.drawEllipse(QRectF(pad + (led + ledGap), ly, led, led));
-        p.setBrush(hddOn ? QColor(255, 40, 30) : QColor(60, 12, 10));
-        p.drawEllipse(QRectF(pad + 2 * (led + ledGap), ly, led, led));
+        const qreal lx = buttonsW + pad;
+        p.setBrush(powerOn ? QColor(60, 230, 60) : QColor(12, 48, 12));
+        p.drawEllipse(QRectF(lx, ly, led, led));
+        p.setBrush((powerOn && isTurbo) ? QColor(255, 220, 40) : QColor(60, 52, 10));
+        p.drawEllipse(QRectF(lx + (led + ledGap), ly, led, led));
+        p.setBrush((powerOn && hddOn) ? QColor(255, 40, 30) : QColor(60, 12, 10));
+        p.drawEllipse(QRectF(lx + 2 * (led + ledGap), ly, led, led));
 
-        const QColor lit   = isTurbo ? QColor(255, 40, 30) : QColor(255, 170, 20);
-        const QColor unlit = QColor(60, 14, 10);
+        /* The speed display, in green at both speeds. */
+        const QColor lit   = QColor(50, 255, 80);
+        const QColor unlit = QColor(8, 42, 14);
         const int    h     = height() - 6;
         const int    y0    = 3;
         uint8_t      segs[3] = { 0, 0, 0 };
         /* Right-aligned, as the display's digits are wired. */
-        const int    n     = (text.size() > 3) ? 3 : text.size();
+        const int    n     = !powerOn ? 0 : ((text.size() > 3) ? 3 : text.size());
         for (int i = 0; i < n; i++)
             segs[3 - n + i] = glyph(text[i]);
         for (int d = 0; d < 3; d++) {
-            const qreal x  = ledsW + pad + d * (digitW + gap);
+            const qreal x  = buttonsW + ledsW + pad + d * (digitW + gap);
             const qreal w  = digitW - 1;
             const qreal t  = 1.6;
             const qreal hh = h / 2.0;
@@ -196,16 +291,47 @@ protected:
     }
 
 private:
-    static constexpr int digitW = 9;
-    static constexpr int gap    = 2;
-    static constexpr int pad    = 3;
-    static constexpr int led    = 6;
-    static constexpr int ledGap = 4;
-    static constexpr int ledsW  = 3 * led + 2 * ledGap + 4;
+    static constexpr int btnH     = 12;
+    static constexpr int powerX   = 3;
+    static constexpr int powerW   = 12;
+    static constexpr int resetX   = powerX + powerW + 5;
+    static constexpr int resetW   = 7;
+    static constexpr int turboX   = resetX + resetW + 5;
+    static constexpr int turboW   = 9;
+    static constexpr int buttonsW = turboX + turboW + 5;
+    static constexpr int digitW   = 9;
+    static constexpr int gap      = 2;
+    static constexpr int pad      = 3;
+    static constexpr int led      = 6;
+    static constexpr int ledGap   = 4;
+    static constexpr int ledsW    = 3 * led + 2 * ledGap + 4;
     QString text;
-    bool    isTurbo = true;
-    bool    hddOn   = false;
+    bool    isTurbo     = true;
+    bool    hddOn       = false;
+    bool    powerOn     = true;
+    bool    turboSwitch = false;
+    Button  pressed     = None;
 };
+
+/* Ask before a front panel button stops what the machine is doing, as the
+   Hard Reset menu item does, unless that question has been turned off. */
+static bool
+front_panel_confirm(const QString &question)
+{
+    if (!confirm_reset)
+        return true;
+    QMessageBox box(QMessageBox::Icon::Question, EMU_NAME, question, QMessageBox::Yes | QMessageBox::No, main_window);
+    const auto  chkbox = new QCheckBox(QObject::tr("Don't show this message again"));
+    box.setCheckBox(chkbox);
+    box.exec();
+    if (box.result() == QMessageBox::No)
+        return false;
+    if (chkbox->isChecked()) {
+        confirm_reset = 0;
+        config_save_global_setting("Emulator", "confirm_reset");
+    }
+    return true;
+}
 
 /* What the display shows: the jumpered readout for the Turbo state if one is
    set, else the clock in whole MHz (66 for a 66.67 MHz part), scaled down
@@ -954,7 +1080,7 @@ MachineStatus::refreshIcons()
             if (!update_icons)
                 machine_status.hdd[i].active = machine_status.hdd[i].write_active = false;
         }
-        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, hdd_on);
+        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, hdd_on, !pc_powered_off, machine_has_turbo_switch() != 0);
     }
 
     if (d->dynarec) {
@@ -1445,11 +1571,22 @@ MachineStatus::refresh(QStatusBar *sbar)
 
     d->speed = std::make_unique<SpeedDisplay>();
     d->speed->setToolTip(machine_has_turbo_switch() ?
-                             tr("Front panel: Turbo LED, hard disk LED and speed display\nClick for the Turbo switch, right-click to set the display's jumpers") :
-                             tr("Front panel: Turbo LED, hard disk LED and speed display\nRight-click to set the display's jumpers"));
+                             tr("Front panel: Power, Reset and Turbo buttons, power, Turbo and hard disk LEDs, and speed display\nRight-click to set the display's jumpers") :
+                             tr("Front panel: Power and Reset buttons, power, Turbo and hard disk LEDs, and speed display\nRight-click to set the display's jumpers"));
     d->speed->onClick = [] {
         if (machine_has_turbo_switch())
             machine_turbo_switch = !machine_turbo_switch;
+    };
+    d->speed->onPower = [this] {
+        if (!pc_powered_off && !front_panel_confirm(tr("Are you sure you want to switch the emulated machine off?")))
+            return;
+        pc_power_switch(pc_powered_off);
+        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false, !pc_powered_off, machine_has_turbo_switch() != 0);
+    };
+    d->speed->onReset = [] {
+        if (pc_powered_off || !front_panel_confirm(tr("Are you sure you want to reset the emulated machine?")))
+            return;
+        pc_reset_button();
     };
     d->speed->onMenu = [this](QPoint pos) {
         QMenu    menu;
@@ -1488,9 +1625,9 @@ MachineStatus::refresh(QStatusBar *sbar)
                 config_save();
             }
         }
-        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false);
+        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false, !pc_powered_off, machine_has_turbo_switch() != 0);
     };
-    d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false);
+    d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false, !pc_powered_off, machine_has_turbo_switch() != 0);
     sbar->addWidget(d->speed.get());
 
     d->sound = std::make_unique<ClickableLabel>();

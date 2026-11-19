@@ -463,6 +463,37 @@ video_blit_memtoscreen_monitor(int x, int y, int w, int h, int monitor_index)
     MTR_END("video", "video_blit_memtoscreen");
 }
 
+/* Show a black screen on every monitor, as a switched-off machine does.
+   Called with the machine stopped. */
+void
+video_blank_monitors(void)
+{
+    for (int i = 0; i < MONITORS_NUM; i++) {
+        bitmap_t    *b = monitors[i].target_buffer;
+        blit_data_t *d = monitors[i].mon_blit_data_ptr;
+        int          x;
+        int          y;
+        int          w;
+        int          h;
+
+        if (!b || !d || !d->thread_run)
+            continue;
+
+        video_wait_for_blit_monitor(i);
+        x = d->x;
+        y = d->y;
+        w = d->w;
+        h = d->h;
+        if ((w <= 0) || (h <= 0))
+            continue;
+        if ((x < 0) || (y < 0) || ((x + w) > b->w) || ((y + h) > b->h))
+            continue;
+        for (int l = y; l < (y + h); l++)
+            memset(&b->line[l][x], 0x00, w * sizeof(uint32_t));
+        video_blit_memtoscreen_monitor(x, y, w, h, i);
+    }
+}
+
 /* Character clocks from the selected HSYNC edge to the next line.
    Pass zero for sync start, or the effective pulse width for sync end. */
 int
