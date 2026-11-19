@@ -185,6 +185,8 @@ hdd_audio_load_profiles(void)
         strncpy(config->internal_name, internal_name, sizeof(config->internal_name) - 1);
 
         config->rpm = ini_section_get_int(cat, "rpm", 0);
+        config->poweron_clicks = ini_section_get_int(cat, "poweron_clicks", HDD_MECH_POWERON_CLICKS);
+        config->srst_clicks    = ini_section_get_int(cat, "srst_clicks", HDD_MECH_SRST_CLICKS);
 
         /* Load spindle motor sample files */
         const char *file = ini_section_get_string(cat, "spindlemotor_start_file", "");
@@ -580,7 +582,8 @@ hdd_audio_mech_timer(void *priv)
     switch (state->mech_phase) {
         case HDD_MECH_SPINUP:
             /* Platters are at speed: the heads now calibrate. */
-            hdd_audio_mech_start_clicks(state, HDD_MECH_POWERON_CLICKS, 1.0, 70000.0, 0, 1);
+            hdd_audio_mech_start_clicks(state, audio_profiles[state->profile_id].poweron_clicks,
+                                        1.0, 70000.0, 0, 1);
             break;
 
         case HDD_MECH_CLICKS:
@@ -669,7 +672,9 @@ hdd_audio_drive_srst(int hdd_index)
     if (state->mech_busy)
         return;
 
-    hdd_audio_mech_start_clicks(state, HDD_MECH_SRST_CLICKS, 1.0, 60000.0, 0, 1);
+    if (audio_profiles[state->profile_id].srst_clicks > 0)
+        hdd_audio_mech_start_clicks(state, audio_profiles[state->profile_id].srst_clicks,
+                                    1.0, 60000.0, 0, 1);
 }
 
 /* A long seek on a real drive is heard as a short run of clicks rather

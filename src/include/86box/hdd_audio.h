@@ -48,6 +48,8 @@ typedef struct {
     hdd_audio_sample_config_t spindlemotor_loop;
     hdd_audio_sample_config_t spindlemotor_stop;
     hdd_audio_sample_config_t seek_track;
+    int                       poweron_clicks; /* Calibration clicks after spin-up (0 = in the spin-up sample) */
+    int                       srst_clicks;    /* Recalibration clicks on a soft reset */
 } hdd_audio_profile_config_t;
 
 /* Functions for profile management */
