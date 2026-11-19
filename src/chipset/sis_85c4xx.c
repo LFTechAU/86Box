@@ -740,24 +740,28 @@ sis_85c46x_cache_sizing(sis_85c4xx_t *dev, int enable)
    de-turbo (the AMI BIOS sets it on Ctrl+Alt+minus and clears it on
    Ctrl+Alt+plus), register 53h bit 0 set means ignore the front panel turbo
    switch, and register 58h bit 4 picks a hold of 4 us or 8 us out of every
-   12 us. The timer always runs so that it also picks up the switch, which
-   the user interface changes from another thread. */
+   12 us. The hold is the processor's clock control throttle (STPCLK#
+   modulated, cpu.h), which the CPU loop counts as time passing, so the
+   processor runs 1/3 or 2/3 as fast against the timers and the clock.
+   The timer polls so that it also picks up the switch, which the user
+   interface changes from another thread. */
 static void
 sis_85c46x_deturbo_timer(void *priv)
 {
     sis_85c4xx_t *dev    = (sis_85c4xx_t *) priv;
     int           active = (dev->regs[0x07] & 0x02) ||
                            (!(dev->regs[0x03] & 0x01) && !machine_turbo_switch);
+    int           run    = active ? ((dev->regs[0x08] & 0x10) ? 1 : 2) : 0;
 
-    machine_speed_pct = active ? ((dev->regs[0x08] & 0x10) ? 33 : 67) : 100;
+    machine_speed_pct = active ? ((run == 1) ? 33 : 67) : 100;
 
-    if (active) {
-        double hold_us = (dev->regs[0x08] & 0x10) ? 8.0 : 4.0;
+    if (cpu_throttle_run != run) {
+        cpu_throttle_period = 3;
+        cpu_throttle_break  = 0;
+        cpu_throttle_run    = run;
+    }
 
-        sub_cycles((int) ((hold_us * (double) cpu_s->rspeed) / 1000000.0));
-        timer_advance_u64(&dev->deturbo_timer, (uint64_t) (12.0 * TIMER_USEC));
-    } else
-        timer_advance_u64(&dev->deturbo_timer, (uint64_t) (1000.0 * TIMER_USEC));
+    timer_advance_u64(&dev->deturbo_timer, (uint64_t) (1000.0 * TIMER_USEC));
 }
 
 static void
@@ -1064,6 +1068,7 @@ sis_85c4xx_close(void *priv)
 
     if (!dev->is_471 && (dev->reg_base == 0x50)) {
         timer_disable(&dev->deturbo_timer);
+        cpu_throttle_run = 0;
         machine_set_turbo_switch_present(0);
     }
 
