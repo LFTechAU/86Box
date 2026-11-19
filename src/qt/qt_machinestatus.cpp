@@ -61,6 +61,7 @@ extern int          is_dynarec_active(void);
 #include <QFormLayout>
 #include <QLineEdit>
 #include <QMouseEvent>
+#include <QCursor>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 #include <QScreen>
@@ -106,7 +107,7 @@ protected:
     void mousePressEvent(QMouseEvent *e) override
     {
         if ((e->button() == Qt::RightButton) && onMenu)
-            onMenu(e->globalPosition().toPoint());
+            onMenu(QCursor::pos());
         else if ((e->button() == Qt::LeftButton) && onClick)
             onClick();
     }
