@@ -734,6 +734,11 @@ load_machine(void)
 
     cpu_dyn_accurate_fpu_env = ini_section_get_int(cat, "cpu_dyn_accurate_fpu_env", 0);
     cpu_dyn_block_link = !!ini_section_get_int(cat, "cpu_dyn_block_link", 1);
+
+    p = ini_section_get_string(cat, "front_panel_hi", "");
+    snprintf(front_panel_hi, sizeof(front_panel_hi), "%s", p ? p : "");
+    p = ini_section_get_string(cat, "front_panel_lo", "");
+    snprintf(front_panel_lo, sizeof(front_panel_lo), "%s", p ? p : "");
 }
 
 /* Load "Video" section. */
@@ -3758,6 +3763,14 @@ save_machine(void)
         ini_section_delete_var(cat, "cpu_dyn_block_link");
     else
         ini_section_set_int(cat, "cpu_dyn_block_link", 0);
+
+    if (front_panel_hi[0] || front_panel_lo[0]) {
+        ini_section_set_string(cat, "front_panel_hi", front_panel_hi);
+        ini_section_set_string(cat, "front_panel_lo", front_panel_lo);
+    } else {
+        ini_section_delete_var(cat, "front_panel_hi");
+        ini_section_delete_var(cat, "front_panel_lo");
+    }
 
     ini_delete_section_if_empty(config, cat);
 }

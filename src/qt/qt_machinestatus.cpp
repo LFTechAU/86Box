@@ -56,6 +56,13 @@ extern int          is_dynarec_active(void);
 #include <QStatusBar>
 #include <QMenu>
 #include <QPainter>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QFormLayout>
+#include <QLineEdit>
+#include <QMouseEvent>
+#include <QRegularExpression>
+#include <QRegularExpressionValidator>
 #include <QScreen>
 
 #include "qt_mediamenu.hpp"
@@ -68,9 +75,10 @@ extern int          is_dynarec_active(void);
 
 extern MainWindow *main_window;
 
-/* Front panel speed display: the two or three digit seven-segment LED readout
-   that 486-era cases had, showing the CPU clock in MHz, and the clock the
-   chipset slows it to while de-turbo is on. */
+/* Front panel: the green Turbo LED, the amber hard disk LED and the two or
+   three digit seven-segment speed display that 486-era cases had. The
+   display shows the CPU clock in MHz, or the clock the chipset slows it to
+   while de-turbo is on, unless its jumpers are set to fixed readouts. */
 class SpeedDisplay : public QWidget {
 public:
     explicit SpeedDisplay(QWidget *parent = nullptr)
@@ -79,51 +87,90 @@ public:
         setFixedSize(sizeHint());
     }
 
-    QSize sizeHint() const override { return QSize(3 * digitW + 2 * pad + 2 * gap, 18); }
+    QSize sizeHint() const override { return QSize(ledsW + 3 * digitW + 2 * pad + 2 * gap, 18); }
 
-    void setValue(int mhz, bool turbo)
+    void setState(const QString &txt, bool turbo, bool hdd)
     {
-        if ((mhz == value) && (turbo == isTurbo))
+        if ((txt == text) && (turbo == isTurbo) && (hdd == hddOn))
             return;
-        value   = mhz;
+        text    = txt;
         isTurbo = turbo;
+        hddOn   = hdd;
         update();
     }
 
-    std::function<void()> onClick;
+    std::function<void()>       onClick;
+    std::function<void(QPoint)> onMenu;
 
 protected:
-    void mousePressEvent(QMouseEvent *) override
+    void mousePressEvent(QMouseEvent *e) override
     {
-        if (onClick)
+        if ((e->button() == Qt::RightButton) && onMenu)
+            onMenu(e->globalPosition().toPoint());
+        else if ((e->button() == Qt::LeftButton) && onClick)
             onClick();
     }
 
+    /* Segments a-g, bit 0 = a; what a seven-segment digit can show. */
+    static uint8_t glyph(QChar ch)
+    {
+        static const uint8_t digits[10] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f };
+        const char c = ch.toUpper().toLatin1();
+        if ((c >= '0') && (c <= '9'))
+            return digits[c - '0'];
+        switch (c) {
+            case 'A': return 0x77;
+            case 'B': return 0x7c;
+            case 'C': return 0x39;
+            case 'D': return 0x5e;
+            case 'E': return 0x79;
+            case 'F': return 0x71;
+            case 'G': return 0x3d;
+            case 'H': return 0x76;
+            case 'I': return 0x06;
+            case 'J': return 0x1e;
+            case 'L': return 0x38;
+            case 'N': return 0x54;
+            case 'O': return 0x3f;
+            case 'P': return 0x73;
+            case 'R': return 0x50;
+            case 'S': return 0x6d;
+            case 'T': return 0x78;
+            case 'U': return 0x3e;
+            case 'Y': return 0x6e;
+            case '-': return 0x40;
+            case '_': return 0x08;
+            default:  return 0x00;
+        }
+    }
+
+protected:
     void paintEvent(QPaintEvent *) override
     {
-        /* Segments a-g, bit 0 = a. */
-        static const uint8_t font[10] = { 0x3f, 0x06, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x07, 0x7f, 0x6f };
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing, true);
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(16, 6, 6));
         p.drawRoundedRect(rect(), 2, 2);
 
+        /* The LEDs: Turbo (green), then hard disk (amber). */
+        const qreal ly = (height() - led) / 2.0;
+        p.setBrush(isTurbo ? QColor(60, 230, 60) : QColor(14, 50, 14));
+        p.drawEllipse(QRectF(pad, ly, led, led));
+        p.setBrush(hddOn ? QColor(255, 170, 20) : QColor(60, 40, 8));
+        p.drawEllipse(QRectF(pad + led + ledGap, ly, led, led));
+
         const QColor lit   = isTurbo ? QColor(255, 40, 30) : QColor(255, 170, 20);
         const QColor unlit = QColor(60, 14, 10);
         const int    h     = height() - 6;
         const int    y0    = 3;
         uint8_t      segs[3] = { 0, 0, 0 };
-        if (value >= 0) {
-            int v = (value > 999) ? 999 : value;
-            segs[2] = font[v % 10];
-            if (v >= 10)
-                segs[1] = font[(v / 10) % 10];
-            if (v >= 100)
-                segs[0] = font[v / 100];
-        }
+        /* Right-aligned, as the display's digits are wired. */
+        const int    n     = (text.size() > 3) ? 3 : text.size();
+        for (int i = 0; i < n; i++)
+            segs[3 - n + i] = glyph(text[i]);
         for (int d = 0; d < 3; d++) {
-            const qreal x  = pad + d * (digitW + gap);
+            const qreal x  = ledsW + pad + d * (digitW + gap);
             const qreal w  = digitW - 1;
             const qreal t  = 1.6;
             const qreal hh = h / 2.0;
@@ -147,19 +194,29 @@ private:
     static constexpr int digitW = 9;
     static constexpr int gap    = 2;
     static constexpr int pad    = 3;
-    int  value   = -1;
-    bool isTurbo = true;
+    static constexpr int led    = 6;
+    static constexpr int ledGap = 4;
+    static constexpr int ledsW  = 2 * led + ledGap + 4;
+    QString text;
+    bool    isTurbo = true;
+    bool    hddOn   = false;
 };
 
-/* The clock the display shows, as the panel's jumpers would be set: whole MHz
-   (66 for a 66.67 MHz part), scaled down while the chipset de-turbos. */
-static int
-speed_display_mhz(void)
+/* What the display shows: the jumpered readout for the Turbo state if one is
+   set, else the clock in whole MHz (66 for a 66.67 MHz part), scaled down
+   while the chipset de-turbos. */
+static QString
+speed_display_text(void)
 {
+    const bool  turbo  = machine_speed_pct >= 100;
+    const char *jumper = turbo ? front_panel_hi : front_panel_lo;
+    if (jumper[0])
+        return QString::fromLatin1(jumper);
     const int mhz = machine_get_cpu_mhz();
     if (mhz <= 0)
-        return -1;
-    return (mhz * machine_speed_pct + 50) / 100;
+        return QString();
+    const int v = (mhz * machine_speed_pct + 50) / 100;
+    return QString::number((v > 999) ? 999 : v);
 }
 
 static bool sbar_initialized = false;
@@ -883,8 +940,17 @@ MachineStatus::refreshIcons()
         }
     }
 
-    if (d->speed)
-        d->speed->setValue(speed_display_mhz(), machine_speed_pct >= 100);
+    /* The front panel's hard disk LED follows any hard disk. With the icons
+       not updated, nothing below clears the activity, so it is cleared here. */
+    if (d->speed) {
+        bool hdd_on = false;
+        for (size_t i = 0; i < HDD_BUS_USB; i++) {
+            hdd_on = hdd_on || machine_status.hdd[i].active || machine_status.hdd[i].write_active;
+            if (!update_icons)
+                machine_status.hdd[i].active = machine_status.hdd[i].write_active = false;
+        }
+        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, hdd_on);
+    }
 
     if (d->dynarec) {
         d->dynarec->setVisible(cpu_use_dynarec);
@@ -1373,13 +1439,53 @@ MachineStatus::refresh(QStatusBar *sbar)
     }
 
     d->speed = std::make_unique<SpeedDisplay>();
-    d->speed->setToolTip(machine_has_turbo_switch() ? tr("Front panel speed display (click for the Turbo switch)") :
-                                                      tr("Front panel speed display"));
+    d->speed->setToolTip(machine_has_turbo_switch() ?
+                             tr("Front panel: Turbo LED, hard disk LED and speed display\nClick for the Turbo switch, right-click to set the display's jumpers") :
+                             tr("Front panel: Turbo LED, hard disk LED and speed display\nRight-click to set the display's jumpers"));
     d->speed->onClick = [] {
         if (machine_has_turbo_switch())
             machine_turbo_switch = !machine_turbo_switch;
     };
-    d->speed->setValue(speed_display_mhz(), machine_speed_pct >= 100);
+    d->speed->onMenu = [this](QPoint pos) {
+        QMenu    menu;
+        QAction *actual = menu.addAction(tr("Show the actual clock"));
+        actual->setCheckable(true);
+        actual->setChecked(!front_panel_hi[0] && !front_panel_lo[0]);
+        QAction *jumpers = menu.addAction(tr("Set the jumpered readouts..."));
+        QAction *chosen  = menu.exec(pos);
+        if (chosen == actual) {
+            front_panel_hi[0] = front_panel_lo[0] = '\0';
+            config_save();
+        } else if (chosen == jumpers) {
+            QDialog      dlg(main_window);
+            QFormLayout *form = new QFormLayout(&dlg);
+            dlg.setWindowTitle(tr("Front panel display jumpers"));
+            QLabel *info = new QLabel(tr("Real cases were jumpered to show fixed readouts.\n"
+                                         "Up to three digits or letters each (0-9, A-J, L, N-P, R-U, Y, -);\n"
+                                         "leave one empty to show the actual clock for it."));
+            form->addRow(info);
+            QLineEdit *hi = new QLineEdit(QString::fromLatin1(front_panel_hi));
+            QLineEdit *lo = new QLineEdit(QString::fromLatin1(front_panel_lo));
+            for (QLineEdit *e : { hi, lo }) {
+                e->setMaxLength(3);
+                e->setValidator(new QRegularExpressionValidator(
+                    QRegularExpression("[0-9A-Ja-jLlN-Pn-pR-Ur-uYy -]{0,3}"), e));
+            }
+            form->addRow(tr("Turbo on:"), hi);
+            form->addRow(tr("Turbo off:"), lo);
+            auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+            connect(buttons, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+            connect(buttons, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+            form->addRow(buttons);
+            if (dlg.exec() == QDialog::Accepted) {
+                snprintf(front_panel_hi, sizeof(front_panel_hi), "%s", hi->text().toUpper().toLatin1().constData());
+                snprintf(front_panel_lo, sizeof(front_panel_lo), "%s", lo->text().toUpper().toLatin1().constData());
+                config_save();
+            }
+        }
+        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false);
+    };
+    d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false);
     sbar->addWidget(d->speed.get());
 
     d->sound = std::make_unique<ClickableLabel>();

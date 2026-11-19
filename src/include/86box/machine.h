@@ -440,6 +440,10 @@ extern int             machine_has_turbo_switch(void);
 /* Speed the chipset lets the CPU run at, in percent (de-turbo lowers it),
    for the front panel speed display. */
 extern volatile int    machine_speed_pct;
+/* Front panel speed display jumpers: what the display shows with Turbo on and
+   off, up to three characters each; both empty means the actual clock. */
+extern char            front_panel_hi[4];
+extern char            front_panel_lo[4];
 extern int             machine_get_cpu_mhz(void);
 #ifdef EMU_DEVICE_H
 extern const device_t *machine_get_kbc_device(int m);

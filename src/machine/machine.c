@@ -146,6 +146,9 @@ static int turbo_switch_present = 0;
 
 volatile int machine_speed_pct = 100;
 
+char front_panel_hi[4] = "";
+char front_panel_lo[4] = "";
+
 /* The CPU clock in whole MHz, as a front panel display shows it (66 for a
    66.67 MHz part). */
 int
