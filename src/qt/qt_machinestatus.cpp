@@ -76,10 +76,11 @@ extern int          is_dynarec_active(void);
 
 extern MainWindow *main_window;
 
-/* Front panel: the green Turbo LED, the amber hard disk LED and the two or
-   three digit seven-segment speed display that 486-era cases had. The
-   display shows the CPU clock in MHz, or the clock the chipset slows it to
-   while de-turbo is on, unless its jumpers are set to fixed readouts. */
+/* Front panel: the green power, yellow Turbo and red hard disk LEDs and
+   the two or three digit seven-segment speed display that 486-era cases
+   had. The display shows the CPU clock in MHz, or the clock the chipset
+   slows it to while de-turbo is on, unless its jumpers are set to fixed
+   readouts. */
 class SpeedDisplay : public QWidget {
 public:
     explicit SpeedDisplay(QWidget *parent = nullptr)
@@ -154,12 +155,15 @@ protected:
         p.setBrush(QColor(16, 6, 6));
         p.drawRoundedRect(rect(), 2, 2);
 
-        /* The LEDs: Turbo (green), then hard disk (amber). */
+        /* The LEDs, as on the case: power (green), Turbo (yellow), then hard
+           disk (red). */
         const qreal ly = (height() - led) / 2.0;
-        p.setBrush(isTurbo ? QColor(60, 230, 60) : QColor(14, 50, 14));
+        p.setBrush(QColor(60, 230, 60));
         p.drawEllipse(QRectF(pad, ly, led, led));
-        p.setBrush(hddOn ? QColor(255, 170, 20) : QColor(60, 40, 8));
-        p.drawEllipse(QRectF(pad + led + ledGap, ly, led, led));
+        p.setBrush(isTurbo ? QColor(255, 220, 40) : QColor(60, 52, 10));
+        p.drawEllipse(QRectF(pad + (led + ledGap), ly, led, led));
+        p.setBrush(hddOn ? QColor(255, 40, 30) : QColor(60, 12, 10));
+        p.drawEllipse(QRectF(pad + 2 * (led + ledGap), ly, led, led));
 
         const QColor lit   = isTurbo ? QColor(255, 40, 30) : QColor(255, 170, 20);
         const QColor unlit = QColor(60, 14, 10);
@@ -197,7 +201,7 @@ private:
     static constexpr int pad    = 3;
     static constexpr int led    = 6;
     static constexpr int ledGap = 4;
-    static constexpr int ledsW  = 2 * led + ledGap + 4;
+    static constexpr int ledsW  = 3 * led + 2 * ledGap + 4;
     QString text;
     bool    isTurbo = true;
     bool    hddOn   = false;
