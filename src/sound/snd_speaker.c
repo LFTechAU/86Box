@@ -38,6 +38,7 @@ typedef struct speaker_t {
     double  peak; /* highest level in that sample */
     int     zrun; /* silent samples written before it */
     double  hold; /* level to carry into the next sample, for a lone click */
+    double  pend; /* level of a lone click still on at the end of the last sample */
 } speaker_t;
 
 speaker_t *speaker = NULL;
@@ -91,6 +92,7 @@ speaker_update(void)
             speaker->acc  = 0.0;
             speaker->frac = 0.0;
             speaker->peak = 0.0;
+            speaker->pend = 0.0;
         }
 
         while (speaker->pos < music_pos_global) {
@@ -104,17 +106,32 @@ speaker_update(void)
             val = (int32_t) speaker->acc;
             /* A lone click shorter than a sample (the 1993 AMI memory count
                click is about 14 us) after a stretch of silence plays as two
-               whole samples at its level, about as loud as the longer clicks
-               of older BIOSes, rather than scaled down by its width.
-               Back-to-back pulses, as in PWM sample playback, keep the plain
-               average. */
+               whole samples at its level, wherever it falls against the
+               sample boundaries, about as loud as the longer clicks of older
+               BIOSes rather than scaled down by its width. Back-to-back
+               pulses, as in PWM sample playback, keep the plain average. */
             if (speaker->hold > 0.0) {
                 if (val == 0)
                     val = (int32_t) speaker->hold;
                 speaker->hold = 0.0;
-            } else if ((speaker->zrun >= 8) && (level == 0.0) && (speaker->peak > 0.0)) {
-                val           = (int32_t) speaker->peak;
-                speaker->hold = speaker->peak;
+            } else if (speaker->pend > 0.0) {
+                /* the click began in the last sample: if it ended in this
+                   one, both samples play it at full level */
+                if ((level == 0.0) && (speaker->acc < speaker->pend)) {
+                    if (speaker->pos > 0)
+                        speaker->buffer[speaker->pos - 1] = (int32_t) speaker->pend;
+                    else
+                        speaker->hold = speaker->pend;
+                    val = (int32_t) speaker->pend;
+                }
+                speaker->pend = 0.0;
+            } else if ((speaker->zrun >= 8) && (speaker->peak > 0.0)) {
+                if (level == 0.0) {
+                    /* the click began and ended in this sample */
+                    val           = (int32_t) speaker->peak;
+                    speaker->hold = speaker->peak;
+                } else if (speaker->acc < speaker->peak)
+                    speaker->pend = speaker->peak;
             }
             speaker->buffer[speaker->pos++] = val;
             speaker->zrun = val ? 0 : ((speaker->zrun < 1000) ? (speaker->zrun + 1) : 1000);
