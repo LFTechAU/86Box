@@ -1038,6 +1038,19 @@ sound_poll(UNUSED(void *priv))
     }
 }
 
+/* How far into the current music sample emulated time is, 0.0 to 1.0. */
+double
+music_get_pos_frac(void)
+{
+    if (!music_poll_latch || !timer_is_enabled(&music_poll_timer))
+        return 0.0;
+
+    double frac = 1.0 - ((double) timer_get_remaining_u64(&music_poll_timer) /
+                         (double) music_poll_latch);
+
+    return (frac < 0.0) ? 0.0 : ((frac > 1.0) ? 1.0 : frac);
+}
+
 void
 music_poll(UNUSED(void *priv))
 {

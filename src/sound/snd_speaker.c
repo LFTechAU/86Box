@@ -33,6 +33,8 @@ typedef struct speaker_t {
 
     uint8_t mode;
     double  count;
+    double  acc;  /* level x time so far in the sample at pos */
+    double  frac; /* how far into that sample acc covers */
 } speaker_t;
 
 speaker_t *speaker = NULL;
@@ -46,39 +48,60 @@ speaker_set_count(const uint8_t new_m, const int new_count)
     }
 }
 
+/* The speaker's level as the current gate, data and PIT state give it. */
+static double
+speaker_level(void)
+{
+    double amplitude = ((speaker->count / 256.0) * 10240.0) - 5120.0;
+    int    enabled   = speaker_enable;
+
+    if (amplitude > 5120.0)
+        amplitude = 5120.0;
+
+    if (speaker_gated && enabled) {
+        if ((speaker->mode == 0) || (speaker->mode == 4))
+            return amplitude;
+        else if (speaker->count < 64.0)
+            return 0xa00;
+        else
+            return speakon ? 0x1400 : 0;
+    } else if (speaker->mode == 1)
+        return enabled ? amplitude : 0;
+
+    return enabled ? 0x1400 : 0;
+}
+
+/* Called before anything that changes the level: each sample is the
+   average level over its whole length, so a pulse shorter than a sample
+   (the BIOS memory count click is a few microseconds) always gives the same
+   click, in proportion to its width, rather than one or two whole samples
+   depending on where it falls. */
 void
 speaker_update(void)
 {
     if (speaker != NULL) {
-        double amplitude = ((speaker->count / 256.0) * 10240.0) - 5120.0;
+        double level = speaker_level();
+        double frac  = music_get_pos_frac();
 
-        if (amplitude > 5120.0)
-            amplitude = 5120.0;
-
-        if (speaker->pos < music_pos_global) {
-            int32_t val;
-
-            for (; speaker->pos < music_pos_global; speaker->pos++) {
-                if (speaker_gated && was_speaker_enable) {
-                    if ((speaker->mode == 0) || (speaker->mode == 4))
-                        val = (int32_t) amplitude;
-                    else if (speaker->count < 64.0)
-                        val = 0xa00;
-                    else
-                        val = speakon ? 0x1400 : 0;
-                } else {
-                    if (speaker->mode == 1)
-                        val = was_speaker_enable ? (int32_t) amplitude : 0;
-                    else
-                        val = was_speaker_enable ? 0x1400 : 0;
-                }
-
-                if (!speaker_enable)
-                    was_speaker_enable = 0;
-
-                speaker->buffer[speaker->pos] = val;
-            }
+        if (speaker->pos > music_pos_global) {
+            /* the buffer was handed out: start again from its beginning */
+            speaker->acc  = 0.0;
+            speaker->frac = 0.0;
         }
+
+        while (speaker->pos < music_pos_global) {
+            speaker->acc += level * (1.0 - speaker->frac);
+            speaker->buffer[speaker->pos++] = (int32_t) speaker->acc;
+            speaker->acc  = 0.0;
+            speaker->frac = 0.0;
+        }
+
+        if (frac > speaker->frac) {
+            speaker->acc += level * (frac - speaker->frac);
+            speaker->frac = frac;
+        }
+
+        was_speaker_enable = speaker_enable;
     }
 }
 

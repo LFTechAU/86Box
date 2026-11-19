@@ -109,6 +109,7 @@ extern int midi_buf_size;
 
 extern int sound_pos_global;
 extern int music_pos_global;
+extern double music_get_pos_frac(void);
 extern int ym2151_pos_global;
 extern int wavetable_pos_global;
 
