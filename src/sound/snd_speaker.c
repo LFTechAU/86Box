@@ -35,6 +35,9 @@ typedef struct speaker_t {
     double  count;
     double  acc;  /* level x time so far in the sample at pos */
     double  frac; /* how far into that sample acc covers */
+    double  peak; /* highest level in that sample */
+    int     zrun; /* silent samples written before it */
+    double  hold; /* level to carry into the next sample, for a lone click */
 } speaker_t;
 
 speaker_t *speaker = NULL;
@@ -87,18 +90,44 @@ speaker_update(void)
             /* the buffer was handed out: start again from its beginning */
             speaker->acc  = 0.0;
             speaker->frac = 0.0;
+            speaker->peak = 0.0;
         }
 
         while (speaker->pos < music_pos_global) {
-            speaker->acc += level * (1.0 - speaker->frac);
-            speaker->buffer[speaker->pos++] = (int32_t) speaker->acc;
+            int32_t val;
+
+            if (speaker->frac < 1.0) {
+                speaker->acc += level * (1.0 - speaker->frac);
+                if (level > speaker->peak)
+                    speaker->peak = level;
+            }
+            val = (int32_t) speaker->acc;
+            /* A lone click shorter than a sample (the 1993 AMI memory count
+               click is about 14 us) after a stretch of silence plays as two
+               whole samples at its level, about as loud as the longer clicks
+               of older BIOSes, rather than scaled down by its width.
+               Back-to-back pulses, as in PWM sample playback, keep the plain
+               average. */
+            if (speaker->hold > 0.0) {
+                if (val == 0)
+                    val = (int32_t) speaker->hold;
+                speaker->hold = 0.0;
+            } else if ((speaker->zrun >= 8) && (level == 0.0) && (speaker->peak > 0.0)) {
+                val           = (int32_t) speaker->peak;
+                speaker->hold = speaker->peak;
+            }
+            speaker->buffer[speaker->pos++] = val;
+            speaker->zrun = val ? 0 : ((speaker->zrun < 1000) ? (speaker->zrun + 1) : 1000);
             speaker->acc  = 0.0;
             speaker->frac = 0.0;
+            speaker->peak = 0.0;
         }
 
         if (frac > speaker->frac) {
             speaker->acc += level * (frac - speaker->frac);
             speaker->frac = frac;
+            if (level > speaker->peak)
+                speaker->peak = level;
         }
 
         was_speaker_enable = speaker_enable;
