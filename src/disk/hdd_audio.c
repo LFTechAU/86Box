@@ -206,6 +206,7 @@ hdd_audio_load_profiles(void)
         config->poweron_clicks = ini_section_get_int(cat, "poweron_clicks", HDD_MECH_POWERON_CLICKS);
         config->srst_clicks    = ini_section_get_int(cat, "srst_clicks", HDD_MECH_SRST_CLICKS);
         config->poweron_hold_ms = ini_section_get_int(cat, "poweron_hold_ms", HDD_MECH_POWERON_HOLD_MS);
+        strncpy(config->models, ini_section_get_string(cat, "models", ""), sizeof(config->models) - 1);
 
         /* Load spindle motor sample files */
         const char *file = ini_section_get_string(cat, "spindlemotor_start_file", "");
@@ -273,6 +274,49 @@ hdd_audio_get_profile_rpm(int id)
     if (id < 0 || id >= audio_profile_count)
         return 0;
     return audio_profiles[id].rpm;
+}
+
+/* Whether a profile is offered for a drive model: no RPM set, the same
+   RPM, or the model is in the profile's "models" list (comma-separated
+   internal names; a trailing '*' matches a prefix). */
+int
+hdd_audio_profile_fits(int id, uint32_t rpm, const char *model)
+{
+    const hdd_audio_profile_config_t *config;
+    const char                       *p;
+
+    if ((id < 0) || (id >= audio_profile_count))
+        return 0;
+
+    config = &audio_profiles[id];
+    if ((config->rpm == 0) || (config->rpm == rpm))
+        return 1;
+    if (!model || !model[0])
+        return 0;
+
+    p = config->models;
+    while (*p) {
+        char   tok[64];
+        size_t n = 0;
+
+        while ((*p == ',') || (*p == ' '))
+            p++;
+        while (*p && (*p != ',') && (n < (sizeof(tok) - 1)))
+            tok[n++] = *p++;
+        while ((n > 0) && (tok[n - 1] == ' '))
+            n--;
+        tok[n] = '\0';
+        if (n == 0)
+            continue;
+
+        if (tok[n - 1] == '*') {
+            if (!strncasecmp(model, tok, n - 1))
+                return 1;
+        } else if (!strcasecmp(model, tok))
+            return 1;
+    }
+
+    return 0;
 }
 
 int

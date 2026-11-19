@@ -51,6 +51,7 @@ typedef struct {
     int                       poweron_clicks; /* Calibration clicks after spin-up (0 = in the spin-up sample) */
     int                       srst_clicks;    /* Recalibration clicks on a soft reset */
     int                       poweron_hold_ms; /* POST held this long while the drive starts */
+    char                      models[512];    /* Drive models (internal names, '*' = prefix) the profile also fits */
 } hdd_audio_profile_config_t;
 
 /* Functions for profile management */
@@ -60,6 +61,7 @@ extern const hdd_audio_profile_config_t *hdd_audio_get_profile(int id);
 extern const char                       *hdd_audio_get_profile_name(int id);
 extern const char                       *hdd_audio_get_profile_internal_name(int id);
 extern uint32_t                          hdd_audio_get_profile_rpm(int id);
+extern int                               hdd_audio_profile_fits(int id, uint32_t rpm, const char *model);
 extern int                               hdd_audio_get_profile_by_internal_name(const char *internal_name);
 
 /* HDD audio initialization and cleanup */

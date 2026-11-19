@@ -487,6 +487,7 @@ SettingsHarddisks::populateAudioProfiles()
     
     /* Get RPM from currently selected speed preset */
     uint32_t target_rpm = hdd_preset_get_rpm(ui->comboBoxSpeed->currentData(Qt::UserRole).toUInt());
+    const char *target_model = hdd_preset_get_internal_name(ui->comboBoxSpeed->currentData(Qt::UserRole).toUInt());
     
     /* Populate audio profile combobox with matching RPM profiles */
     int profile_count = hdd_audio_get_profile_count();
@@ -497,9 +498,9 @@ SettingsHarddisks::populateAudioProfiles()
     } else
         for (int i = 0; i < profile_count; i++) {
             const char *name = hdd_audio_get_profile_name(i);
-            uint32_t profile_rpm = hdd_audio_get_profile_rpm(i);
-            /* Include profile if it has no RPM set (0) or matches target RPM */
-            if (name && (profile_rpm == 0 || profile_rpm == target_rpm))
+            /* Include profile if it has no RPM set (0), matches the target
+               RPM or lists the drive model */
+            if (name && hdd_audio_profile_fits(i, target_rpm, target_model))
                 ui->comboBoxAudio->addItem(tr(name), i);
         }
 }
