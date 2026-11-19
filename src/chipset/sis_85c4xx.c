@@ -74,6 +74,7 @@ typedef struct sis_85c4xx_t {
     uint8_t *     cache_sram;
     uint32_t      cache_sram_mask;
     mem_mapping_t cache_sram_mapping;
+    int           cache_sizing;
 
     /* 85C460/461 de-turbo: the chipset holds the CPU off the bus for 4 or
        8 us out of every 12 us. */
@@ -682,6 +683,10 @@ sis_85c46x_cache_sram_read(uint32_t addr, void *priv)
 {
     const sis_85c4xx_t *dev = (sis_85c4xx_t *) priv;
 
+    /* A board without cache SRAM: the data lines float. */
+    if (dev->cache_sram == NULL)
+        return 0xff;
+
     return dev->cache_sram[addr & dev->cache_sram_mask];
 }
 
@@ -704,7 +709,8 @@ sis_85c46x_cache_sram_write(uint32_t addr, uint8_t val, void *priv)
 {
     const sis_85c4xx_t *dev = (sis_85c4xx_t *) priv;
 
-    dev->cache_sram[addr & dev->cache_sram_mask] = val;
+    if (dev->cache_sram != NULL)
+        dev->cache_sram[addr & dev->cache_sram_mask] = val;
 }
 
 static void
@@ -724,7 +730,7 @@ sis_85c46x_cache_sram_writel(uint32_t addr, uint32_t val, void *priv)
 static void
 sis_85c46x_cache_sizing(sis_85c4xx_t *dev, int enable)
 {
-    if (dev->cache_sram == NULL)
+    if (!dev->force_cache_size)
         return;
 
     if (enable)
@@ -733,6 +739,22 @@ sis_85c46x_cache_sizing(sis_85c4xx_t *dev, int enable)
         mem_mapping_disable(&dev->cache_sram_mapping);
 
     flushmmucache();
+}
+
+/* The 85C401 BIOS (AMI 05/05/91) sizes the cache with the cache on
+   (register 61h bit 7) and register 67h bit 0 clear, writing a pattern at
+   256, 320 and 384 KB and reading which one survives where they share a
+   cache line; it then sets 67h bit 0. Model that window as the cache data
+   SRAM, which wraps around at its size. */
+static void
+sis_85c401_cache_sizing_update(sis_85c4xx_t *dev)
+{
+    int on = (dev->regs[0x01] & 0x80) && !(dev->regs[0x07] & 0x01);
+
+    if (dev->force_cache_size && (on != dev->cache_sizing)) {
+        dev->cache_sizing = on;
+        sis_85c46x_cache_sizing(dev, on);
+    }
 }
 
 /* SiS 85C460 datasheet, Turbo Switch: "When the de-turbo function is turned
@@ -796,6 +818,8 @@ sis_85c4xx_out(uint16_t port, uint8_t val, void *priv)
                     case 0x01:
                         cpu_cache_ext_enabled = ((val & 0x84) == 0x84);
                         cpu_update_waitstates();
+                        if (dev->reg_base == 0x60)
+                            sis_85c401_cache_sizing_update(dev);
                         break;
 
                     case 0x02:
@@ -808,7 +832,9 @@ sis_85c4xx_out(uint16_t port, uint8_t val, void *priv)
                         break;
 
                     case 0x07:
-                        if (!dev->is_471 && (valxor & 0x01))
+                        if (dev->reg_base == 0x60)
+                            sis_85c401_cache_sizing_update(dev);
+                        else if (!dev->is_471 && (valxor & 0x01))
                             sis_85c46x_cache_sizing(dev, val & 0x01);
                         break;
 
@@ -972,6 +998,7 @@ sis_85c4xx_reset(void *priv)
     dev->romcs_e_active = dev->post_romcs_e;
 
     sis_85c46x_cache_sizing(dev, 0);
+    dev->cache_sizing = 0;
 
     if ((cpu_s != NULL) && (cpu_s->rspeed < 25000000))
         dev->regs[0x08] = 0x80;
@@ -1109,10 +1136,13 @@ sis_85c4xx_init(const device_t *info)
            has cache SRAM; the code is the register 51h bits 5:4 size, from
            32 KB (0) to 256 KB (3). */
         if (dev->force_cache_size) {
-            uint32_t sram_size = 0x00008000 << (dev->cache_size_code & 0x03);
+            /* On the 85C401, code 0 is a board without cache SRAM. */
+            if ((dev->reg_base != 0x60) || dev->cache_size_code) {
+                uint32_t sram_size = 0x00008000 << (dev->cache_size_code & 0x03);
 
-            dev->cache_sram      = (uint8_t *) calloc(1, sram_size);
-            dev->cache_sram_mask = sram_size - 1;
+                dev->cache_sram      = (uint8_t *) calloc(1, sram_size);
+                dev->cache_sram_mask = sram_size - 1;
+            }
 
             mem_mapping_add(&dev->cache_sram_mapping, 0x00000000, 0x000a0000,
                             sis_85c46x_cache_sram_read, sis_85c46x_cache_sram_readw,

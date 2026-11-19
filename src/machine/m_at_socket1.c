@@ -342,6 +342,19 @@ machine_at_sis401_common_init(const machine_t *model)
 static const device_config_t isa486_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 05/05/91 by LFTech"),
+    {
+        .name        = "cache_size",
+        .description = "External cache",
+        .type        = CONFIG_SELECTION,
+        .default_int = 3,
+        .selection   = {
+            { .description = "None",   .value = 0 },
+            { .description = "64 KB",  .value = 1 },
+            { .description = "128 KB", .value = 2 },
+            { .description = "256 KB", .value = 3 },
+            { .description = ""                   }
+        }
+    },
     MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -374,7 +387,17 @@ machine_at_isa486_init(const machine_t *model)
     if (bios_only || !ret)
         return ret;
 
-    machine_at_sis401_common_init(model);
+    machine_at_common_init(model);
+
+    /* The BIOS sizes the cache through the chipset (see sis_85c4xx.c); pass
+       the board's cache size, 0 for none. */
+    device_add_params(&sis_85c401_device,
+                      (void *) (((uintptr_t) 1 << 24) | ((uintptr_t) machine_get_config_int("cache_size") << 16)));
+
+    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+
+    if (fdc_current[0] == FDC_INTERNAL)
+        device_add(&fdc_at_device);
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
@@ -404,6 +427,19 @@ machine_at_sis401_init(const machine_t *model)
 static const device_config_t av4_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 06/06/92 by LFTech"),
+    {
+        .name        = "cache_size",
+        .description = "External cache",
+        .type        = CONFIG_SELECTION,
+        .default_int = 3,
+        .selection   = {
+            { .description = "None",   .value = -1 },
+            { .description = "64 KB",  .value =  1 },
+            { .description = "128 KB", .value =  2 },
+            { .description = "256 KB", .value =  3 },
+            { .description = ""                    }
+        }
+    },
     MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
@@ -438,7 +474,13 @@ machine_at_av4_init(const machine_t *model)
 
     machine_at_common_init(model);
 
-    device_add(&sis_85c460_device);
+    /* As on the SOYO 486 VESA: the selected cache size goes to the chipset,
+       which emulates the cache data SRAM for the BIOS's cache sizing. */
+    int cache_size_code = machine_get_config_int("cache_size");
+    if (cache_size_code >= 0)
+        device_add_params(&sis_85c460_device, (void *) (((uintptr_t) 1 << 24) | ((uintptr_t) cache_size_code << 16)));
+    else
+        device_add(&sis_85c460_device);
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
