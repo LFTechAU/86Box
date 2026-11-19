@@ -228,6 +228,20 @@ const OpFn x86_2386_illegal_op = ILLEGAL;
 /* And for the x87 opcodes, 16- and 32-bit addressing. */
 const OpFn x86_2386_fpu_illegal_op[2] = { FPU_ILLEGAL_a16, FPU_ILLEGAL_a32 };
 
+static void
+throttle_stall_2386(int32_t ran)
+{
+    static int64_t rem = 0;
+    int64_t        acc;
+
+    if ((ran <= 0) || (cpu_throttle_run >= cpu_throttle_period))
+        return;
+
+    acc  = ((int64_t) ran * (cpu_throttle_period - cpu_throttle_run)) + rem;
+    rem  = acc % cpu_throttle_run;
+    cycles -= (int32_t) (acc / cpu_throttle_run);
+}
+
 void
 exec386_2386(int32_t cycs)
 {
@@ -417,6 +431,12 @@ exec386_2386(int32_t cycs)
                     }
                 }
             }
+
+            /* Throttling, as the SiS 85C460/461 de-turbo does it: STPCLK#
+               holds the processor (period - run) / run cycles for every cycle
+               it ran, counted below as time passing. */
+            if (cpu_throttle_run > 0)
+                throttle_stall_2386(ins_cycles - cycles);
 
             ins_cycles -= cycles;
             tsc += ins_cycles;
