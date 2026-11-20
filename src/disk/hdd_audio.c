@@ -30,6 +30,8 @@
 #include <86box/mem.h>
 #include <86box/rom.h>
 #include <86box/timer.h>
+#include <86box/device.h>
+#include <86box/machine.h>
 #include "cpu.h"
 
 /* Maximum number of simultaneous seek sounds per HDD */
@@ -907,7 +909,8 @@ hdd_audio_hold_release(UNUSED(void *priv))
 void
 hdd_audio_power_on_hold(void)
 {
-    if (hdd_audio_hold_us <= 0.0)
+    /* An LFTech extra: other machines start the POST at once. */
+    if ((hdd_audio_hold_us <= 0.0) || !machine_lftech)
         return;
 
     timer_add(&hdd_audio_hold_timer, hdd_audio_hold_release, NULL, 0);
@@ -921,7 +924,8 @@ hdd_audio_drive_busy(int hdd_index)
 {
     const hdd_audio_drive_state_t *state = hdd_audio_find_drive_state(hdd_index);
 
-    return state && state->mech_busy;
+    /* An LFTech extra: other machines see a ready drive, as 86Box has it. */
+    return machine_lftech && state && state->mech_busy;
 }
 
 /* Soft reset (SRST): a spinning drive recalibrates its heads. */
