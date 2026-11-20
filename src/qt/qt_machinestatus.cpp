@@ -19,6 +19,7 @@
 extern "C" {
 #include <86box/86box.h>
 #include <86box/hdd.h>
+#include <86box/hdd_audio.h>
 #include <86box/timer.h>
 #include <86box/device.h>
 #include <86box/cartridge.h>
@@ -96,18 +97,28 @@ public:
     {
         setFixedSize(sizeHint());
         setMouseTracking(true);
+
+        /* The hard disk LED is polled much faster than the status bar
+           icons, so that a single access shows as a short flash. */
+        auto *ledTimer = new QTimer(this);
+        connect(ledTimer, &QTimer::timeout, this, [this] {
+            const bool lit = hdd_led_lit() != 0;
+            if (lit != hddOn) {
+                hddOn = lit;
+                update();
+            }
+        });
+        ledTimer->start(10);
     }
 
     QSize sizeHint() const override { return QSize(displayX + 3 * digitW + 2 * gap + 2 * pad + 3, 18); }
 
-    void setState(const QString &txt, bool turbo, bool hdd, bool power, bool hasTurbo)
+    void setState(const QString &txt, bool turbo, bool power, bool hasTurbo)
     {
-        if ((txt == text) && (turbo == isTurbo) && (hdd == hddOn) && (power == powerOn) &&
-            (hasTurbo == turboSwitch))
+        if ((txt == text) && (turbo == isTurbo) && (power == powerOn) && (hasTurbo == turboSwitch))
             return;
         text        = txt;
         isTurbo     = turbo;
-        hddOn       = hdd;
         powerOn     = power;
         turboSwitch = hasTurbo;
         update();
@@ -1120,16 +1131,15 @@ MachineStatus::refreshIcons()
         }
     }
 
-    /* The front panel's hard disk LED follows any hard disk. With the icons
-       not updated, nothing below clears the activity, so it is cleared here. */
+    /* The front panel's hard disk LED keeps its own time (hdd_led_lit). With
+       the icons not updated, nothing below clears the activity, so it is
+       cleared here. */
     if (d->speed) {
-        bool hdd_on = false;
-        for (size_t i = 0; i < HDD_BUS_USB; i++) {
-            hdd_on = hdd_on || machine_status.hdd[i].active || machine_status.hdd[i].write_active;
-            if (!update_icons)
+        if (!update_icons) {
+            for (size_t i = 0; i < HDD_BUS_USB; i++)
                 machine_status.hdd[i].active = machine_status.hdd[i].write_active = false;
         }
-        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, hdd_on, !pc_powered_off, machine_has_turbo_switch() != 0);
+        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, !pc_powered_off, machine_has_turbo_switch() != 0);
     }
 
     if (d->dynarec) {
@@ -1627,7 +1637,7 @@ MachineStatus::refresh(QStatusBar *sbar)
         if (!pc_powered_off && !front_panel_confirm(tr("Are you sure you want to switch the emulated machine off?")))
             return;
         pc_power_switch(pc_powered_off);
-        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false, !pc_powered_off, machine_has_turbo_switch() != 0);
+        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, !pc_powered_off, machine_has_turbo_switch() != 0);
     };
     d->speed->onReset = [] {
         if (pc_powered_off || !front_panel_confirm(tr("Are you sure you want to reset the emulated machine?")))
@@ -1671,9 +1681,9 @@ MachineStatus::refresh(QStatusBar *sbar)
                 config_save();
             }
         }
-        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false, !pc_powered_off, machine_has_turbo_switch() != 0);
+        d->speed->setState(speed_display_text(), machine_speed_pct >= 100, !pc_powered_off, machine_has_turbo_switch() != 0);
     };
-    d->speed->setState(speed_display_text(), machine_speed_pct >= 100, false, !pc_powered_off, machine_has_turbo_switch() != 0);
+    d->speed->setState(speed_display_text(), machine_speed_pct >= 100, !pc_powered_off, machine_has_turbo_switch() != 0);
     sbar->addWidget(d->speed.get());
 
     d->sound = std::make_unique<ClickableLabel>();

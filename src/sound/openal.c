@@ -34,6 +34,7 @@
 #include <86box/plat_unused.h>
 #include <86box/thread.h>
 #include <86box/runctl.h>
+#include <86box/hdd_audio.h>
 
 ALuint                    buffers[I_MAX][4]; /* front and back buffers */
 static ALuint             source[I_MAX];     /* audio sources */
@@ -454,6 +455,44 @@ inital(void)
     initialized = 1;
 }
 
+/* How long until the block of the hard disk sounds just queued is heard:
+   the blocks queued ahead of it, less what has played of the first, plus
+   the device's own latency where OpenAL Soft reports it. The front panel's
+   hard disk LED is delayed by this to stay in step with the seek sounds. */
+static void
+al_measure_hdd_latency(const int frames)
+{
+    static LPALGETSOURCEI64VSOFT get_i64     = NULL;
+    static int                   get_checked = 0;
+    static double                smooth      = 0.0;
+    ALint                        queued      = 0;
+    ALint                        offset      = 0;
+    double                       device_ms   = 0.0;
+
+    if (!get_checked) {
+        get_checked = 1;
+        if (alIsExtensionPresent("AL_SOFT_source_latency"))
+            get_i64 = (LPALGETSOURCEI64VSOFT) alGetProcAddress("alGetSourcei64vSOFT");
+    }
+
+    alGetSourcei(source[I_HDD], AL_BUFFERS_QUEUED, &queued);
+    if (get_i64 != NULL) {
+        ALint64SOFT vals[2] = { 0, 0 };
+        get_i64(source[I_HDD], AL_SAMPLE_OFFSET_LATENCY_SOFT, vals);
+        offset    = (ALint) (vals[0] >> 32);
+        device_ms = (double) vals[1] / 1000000.0;
+    } else
+        alGetSourcei(source[I_HDD], AL_SAMPLE_OFFSET, &offset);
+
+    const int ahead = (queued - 1) * frames - offset;
+    if ((ahead < 0) || (frames <= 0))
+        return;
+
+    const double ms = ((double) ahead * 1000.0 / (double) src_freqs[I_HDD]) + device_ms;
+    smooth          = (smooth == 0.0) ? ms : (smooth * 0.9 + ms * 0.1);
+    hdd_audio_latency_ms = (int) (smooth + 0.5);
+}
+
 void
 givealbuffer_common(const void *buf, const uint8_t src, const int size)
 {
@@ -483,5 +522,8 @@ givealbuffer_common(const void *buf, const uint8_t src, const int size)
             alBufferData(buffer, AL_FORMAT_STEREO16, buf, size * (int) sizeof(int16_t), (int) src_freqs[src]);
 
         alSourceQueueBuffers(source[src], 1, &buffer);
+
+        if (src == I_HDD)
+            al_measure_hdd_latency(size / 2);
     }
 }

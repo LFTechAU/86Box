@@ -1503,3 +1503,77 @@ hdd_audio_callback(int16_t *buffer, int length)
         }
     }
 }
+/* The front panel's hard disk LED, kept in step with the drive sounds.
+   The LED is lit from the start to the end of each command. The sounds of
+   a seek are heard only once the sound output has played what is queued
+   ahead of them, so while a drive has an audio profile, the LED shows the
+   activity of that long ago instead of the activity of now. */
+#define HDD_LED_SLOTS 2048 /* One per millisecond */
+#define HDD_LED_HOLD  20   /* The shortest flash that is seen */
+
+volatile int hdd_audio_latency_ms = 0;
+
+static volatile uint32_t hdd_led_slot[HDD_LED_SLOTS];
+static volatile int      hdd_led_on    = 0; /* Bit 0: read, bit 1: write */
+static volatile uint32_t hdd_led_since = 0;
+
+static void
+hdd_led_mark(uint32_t from, uint32_t to)
+{
+    if ((to - from) >= HDD_LED_SLOTS)
+        from = to - HDD_LED_SLOTS + 1;
+    for (uint32_t t = from; t != (to + 1); t++)
+        hdd_led_slot[t % HDD_LED_SLOTS] = t;
+}
+
+void
+hdd_led_activity(int write, int on)
+{
+    const uint32_t now = plat_get_ticks();
+    const int      bit = write ? 2 : 1;
+    const int      was = hdd_led_on;
+
+    if (on) {
+        if (!was)
+            hdd_led_since = now;
+        hdd_led_on = was | bit;
+        hdd_led_mark(now, now);
+    } else if (was & bit) {
+        hdd_led_on = was & ~bit;
+        if (!hdd_led_on)
+            hdd_led_mark(hdd_led_since, now);
+    }
+}
+
+/* The delay between a seek and its sound: until the sound thread starts
+   the next block (half a block on average), then the output's own queue,
+   measured by the sound backend where it can, else a typical value. */
+static int
+hdd_led_delay(void)
+{
+    int in_use = 0;
+
+    for (int i = 0; i < active_drive_count; i++) {
+        if (drive_states[i].profile_id > 0) {
+            in_use = 1;
+            break;
+        }
+    }
+    if (!in_use)
+        return 0;
+    return (SOUNDBUFLEN * 500 / SOUND_FREQ) + ((hdd_audio_latency_ms > 0) ? hdd_audio_latency_ms : 70);
+}
+
+int
+hdd_led_lit(void)
+{
+    const uint32_t t = plat_get_ticks() - (uint32_t) hdd_led_delay();
+
+    if (hdd_led_on && ((int32_t) (t - hdd_led_since) >= 0))
+        return 1;
+    for (int i = 0; i < HDD_LED_HOLD; i++) {
+        if (hdd_led_slot[(t - i) % HDD_LED_SLOTS] == (t - i))
+            return 1;
+    }
+    return 0;
+}

@@ -79,6 +79,11 @@ extern volatile int hdd_audio_reset_button;
 extern void hdd_audio_power_off(void);
 extern void hdd_audio_power_on(void);
 
+/* The front panel's hard disk LED, delayed to match the drive sounds */
+extern volatile int hdd_audio_latency_ms;
+extern void         hdd_led_activity(int write, int on);
+extern int          hdd_led_lit(void);
+
 /* Per-drive spindle control */
 extern void hdd_audio_spinup_drive(int hdd_index);
 extern void hdd_audio_spindown_drive(int hdd_index);
