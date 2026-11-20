@@ -355,7 +355,9 @@ contaq_82c59x_read(uint16_t addr, void *priv)
     contaq_82c59x_t *dev = (contaq_82c59x_t *) priv;
     uint8_t          ret = 0xff;
 
-    if (addr == 0x23) {
+    /* Indexes C0h and up are the Cyrix CPU's configuration registers,
+       which share these ports; the chipset doesn't answer for them. */
+    if ((addr == 0x23) && (dev->index < 0xc0)) {
         if (dev->index == 0x6a) {
             ret = dev->smi_status[dev->smi_status_set];
             /* I assume it's cleared on read. */

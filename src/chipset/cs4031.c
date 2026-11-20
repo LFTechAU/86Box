@@ -156,7 +156,9 @@ cs4031_read(uint16_t addr, void *priv)
 {
     const cs4031_t *dev = (cs4031_t *) priv;
 
-    return (addr == 0x23) ? dev->regs[dev->index] : 0xff;
+    /* Indexes C0h and up are the Cyrix CPU's configuration registers,
+       which share these ports; the chipset doesn't answer for them. */
+    return ((addr == 0x23) && (dev->index < 0xc0)) ? dev->regs[dev->index] : 0xff;
 }
 
 static void
