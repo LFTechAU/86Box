@@ -220,6 +220,10 @@ machine_at_greenb_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = machine_get_config_int("bios_lftech") != 0;
+
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);
 
@@ -229,12 +233,13 @@ machine_at_greenb_init(const machine_t *model)
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
     kbc_at_set_ami_line_hook(device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params),
                              greenb_deturbo, NULL);
-    device_add(&machine_deturbo_device);
+    if (machine_lftech)
+        device_add(&machine_deturbo_device);
 
     return ret;
 }
@@ -587,6 +592,17 @@ const device_t vli486sv2g_device = {
 /* The AMI option is the Epox GXA486SG's SiS 471 BIOS: same chipset, and in
    86Box the two boards are otherwise built the same way. The LFTech option is
    that BIOS with an LFTech sign-on and its hidden setup items shown. */
+/* Ctrl+Alt+minus/plus: the LFTech BIOS switches the board's de-turbo line,
+   P13, with keyboard controller command B3h (de-turbo) and BBh (turbo). */
+static void
+vli486sv2g_deturbo(UNUSED(void *priv), uint8_t cmd)
+{
+    if (cmd == 0xb3)
+        machine_soft_deturbo = 1;
+    else if (cmd == 0xbb)
+        machine_soft_deturbo = 0;
+}
+
 int
 machine_at_vli486sv2g_init(const machine_t *model)
 {
@@ -624,6 +640,10 @@ machine_at_vli486sv2g_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = bios == 2;
+
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);
 
@@ -635,10 +655,16 @@ machine_at_vli486sv2g_init(const machine_t *model)
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
-    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+    void *kbc = device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+
+    /* Turbo switch and Ctrl+Alt+minus/plus (KBC line P13). */
+    if (machine_lftech) {
+        kbc_at_set_ami_line_hook(kbc, vli486sv2g_deturbo, NULL);
+        device_add(&machine_deturbo_device);
+    }
 
     return ret;
 }

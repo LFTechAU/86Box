@@ -360,16 +360,21 @@ machine_at_ecs386v_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = machine_get_config_int("bios_lftech") != 0;
+
     device_add_params(&ali1429_device, machine_ali1429_cache_params(machine_get_config_int("cache_size")));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
     kbc_at_set_ami_line_hook(device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params),
                              ecs386v_deturbo, NULL);
-    device_add(&machine_deturbo_device);
+    if (machine_lftech)
+        device_add(&machine_deturbo_device);
 
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);
@@ -527,15 +532,21 @@ const device_t opti291wb_device = {
     .config        = opti291wb_config
 };
 
-/* The board's external cache is switched through keyboard controller lines
-   P22/P23: the BIOS turns it on with AMI KBC command A3h late in POST (after
-   the memory count) and off with A2h. The 82C391's own cache enable bit
-   (register 21h bit 4) is never set by this BIOS. */
+/* The board's Turbo line is keyboard controller lines P22/P23, and like
+   many boards of its day it slows down by turning the external cache off:
+   the BIOS sets the lines with AMI KBC command A3h late in POST (after the
+   memory count) for a High boot-up speed and on Ctrl+Alt+plus, and clears
+   them with A2h for Low and on Ctrl+Alt+minus. The 82C391's own cache
+   enable bit (register 21h bit 4) is never set by this BIOS. On the LFTech
+   BIOS the line also drives the generic de-turbo, so that Turbo off slows
+   the CPU as the SOYO's does. */
 static void
 opti291wb_cache_hook(UNUSED(void *priv), int set)
 {
     cpu_cache_ext_enabled = set;
     cpu_update_waitstates();
+    if (machine_lftech)
+        machine_soft_deturbo = !set;
 }
 
 int
@@ -555,6 +566,10 @@ machine_at_opti291wb_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = machine_get_config_int("bios_lftech") != 0;
+
     /* Local value 2 is the 82C391; bit 24 and bits 17:16 force the cache
        size that register 28h reports, bit 25 makes register 20h bit 0
        a plain setting rather than a reset pulse, and bit 27 selects the
@@ -565,7 +580,7 @@ machine_at_opti291wb_init(const machine_t *model)
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
     kbc = device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
@@ -577,6 +592,10 @@ machine_at_opti291wb_init(const machine_t *model)
        interrupt vectors at 0000:0000, which then makes HIMEM's A20 test
        fail. */
     device_add(&port_92_device);
+
+    /* Turbo switch and Ctrl+Alt+minus/plus (the P22/P23 line above). */
+    if (machine_lftech)
+        device_add(&machine_deturbo_device);
 
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);

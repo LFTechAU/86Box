@@ -435,6 +435,7 @@ extern void            machine_init(void);
 
 /* Front panel turbo switch, for machines whose chipset reads one. */
 extern volatile int    machine_turbo_switch;
+extern int             machine_lftech;
 extern void            machine_set_turbo_switch_present(int present);
 extern int             machine_has_turbo_switch(void);
 /* Generic de-turbo (machine_deturbo_device) for boards whose chipset has no

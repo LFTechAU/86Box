@@ -147,6 +147,10 @@ static int turbo_switch_present = 0;
 
 volatile int machine_speed_pct = 100;
 
+/* Set by a board's init when its LFTech BIOS is selected: only then does it
+   get the LFTech extras (Turbo, the front panel, DRAM timing). */
+int machine_lftech = 0;
+
 char front_panel_hi[4] = "";
 char front_panel_lo[4] = "";
 
@@ -247,6 +251,7 @@ machine_init(void)
     turbo_switch_present = 0;
     machine_speed_pct    = 100;
     machine_soft_deturbo = 0;
+    machine_lftech       = 0;
 
     machine_set_p1_default(machines[machine].kbc_p1);
     machine_set_ps2();

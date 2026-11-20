@@ -191,17 +191,22 @@ machine_at_opti495_ami_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = !strcmp(device_get_config_bios("bios"), "lftech495");
+
     device_add_params(&opti495sx_device,
                       (void *) (uintptr_t) (opti495sx_device.local | 0x100 | ((uint32_t) machine_get_config_int("cache_size") << 16)));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
     kbc = device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
     kbc_at_set_ami_line_hook(kbc, opti495_ami_deturbo, NULL);
-    device_add(&machine_deturbo_device);
+    if (machine_lftech)
+        device_add(&machine_deturbo_device);
 
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);

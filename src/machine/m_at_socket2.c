@@ -189,10 +189,15 @@ machine_at_ali1429_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = machine_get_config_int("bios_lftech") != 0;
+
     /* Register 23h bit 1 is this BIOS's de-turbo (bit 17). */
     device_add_params(&ali1429_device,
                       (void *) ((uintptr_t) machine_ali1429_cache_params(machine_get_config_int("cache_size")) | 0x20000));
-    device_add(&machine_deturbo_device);
+    if (machine_lftech)
+        device_add(&machine_deturbo_device);
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 
@@ -201,7 +206,7 @@ machine_at_ali1429_init(const machine_t *model)
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
     return ret;
@@ -510,6 +515,10 @@ machine_at_soyo461_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = bios >= 1;
+
     /* SiS 85C461 register 51h bits 5:4 are the external cache size. Store
        the selected code in bits 18:16 of the device local value and set bit
        24 to say that the board has cache SRAM. */
@@ -522,7 +531,7 @@ machine_at_soyo461_init(const machine_t *model)
 
     /* Extra clocks per memory bus cycle while the CPU cache is off, so the
        POST memory count runs at the speed of a real early 486 board. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);

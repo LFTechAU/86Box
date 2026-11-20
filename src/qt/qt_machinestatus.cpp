@@ -1140,6 +1140,11 @@ MachineStatus::refreshIcons()
                 machine_status.hdd[i].active = machine_status.hdd[i].write_active = false;
         }
         d->speed->setState(speed_display_text(), machine_speed_pct >= 100, !pc_powered_off, machine_has_turbo_switch() != 0);
+
+        /* The front panel is an LFTech extra: shown only while a board runs
+           its LFTech BIOS. */
+        if (d->speed->isHidden() == (machine_lftech != 0))
+            d->speed->setHidden(machine_lftech == 0);
     }
 
     if (d->dynarec) {

@@ -86,15 +86,20 @@ machine_at_cs4031_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = machine_get_config_int("bios_lftech") != 0;
+
     device_add(&cs4031_device);
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
     /* Turbo switch and Ctrl+Alt+minus/plus (CS4031 register 09h bit 0). */
-    device_add(&machine_deturbo_device);
+    if (machine_lftech)
+        device_add(&machine_deturbo_device);
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
 
@@ -392,6 +397,10 @@ machine_at_isa486_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = machine_get_config_int("bios_lftech") != 0;
+
     /* The BIOS sizes the cache through the chipset (see sis_85c4xx.c); pass
        the board's cache size, 0 for none. */
     device_add_params(&sis_85c401_device,
@@ -404,11 +413,12 @@ machine_at_isa486_init(const machine_t *model)
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
     /* Turbo switch and Ctrl+Alt+minus/plus (85C401 register 67h bit 1). */
-    device_add(&machine_deturbo_device);
+    if (machine_lftech)
+        device_add(&machine_deturbo_device);
 
     return ret;
 }
@@ -480,6 +490,10 @@ machine_at_av4_init(const machine_t *model)
 
     machine_at_common_init(model);
 
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
+    machine_lftech = machine_get_config_int("bios_lftech") != 0;
+
     /* As on the SOYO 486 VESA: the selected cache size goes to the chipset,
        which emulates the cache data SRAM for the BIOS's cache sizing. */
     int cache_size_code = machine_get_config_int("cache_size");
@@ -490,7 +504,7 @@ machine_at_av4_init(const machine_t *model)
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_get_config_int("dram_extra");
+    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);

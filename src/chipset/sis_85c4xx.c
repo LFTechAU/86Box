@@ -79,6 +79,7 @@ typedef struct sis_85c4xx_t {
     /* 85C460/461 de-turbo: the chipset holds the CPU off the bus for 4 or
        8 us out of every 12 us. */
     pc_timer_t    deturbo_timer;
+    int           has_deturbo;
 } sis_85c4xx_t;
 
 static uint8_t ram_4xx[64] = { 0x00, 0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 0x00,
@@ -1097,7 +1098,7 @@ sis_85c4xx_close(void *priv)
     if (dev->is_471)
         smram_del(dev->smram);
 
-    if (!dev->is_471 && (dev->reg_base == 0x50)) {
+    if (dev->has_deturbo) {
         timer_disable(&dev->deturbo_timer);
         cpu_throttle_run = 0;
         machine_set_turbo_switch_present(0);
@@ -1158,7 +1159,9 @@ sis_85c4xx_init(const device_t *info)
         }
     }
 
-    if (!dev->is_471 && (dev->reg_base == 0x50)) {
+    /* De-turbo and the Turbo switch only on the LFTech boards. */
+    dev->has_deturbo = !dev->is_471 && (dev->reg_base == 0x50) && machine_lftech;
+    if (dev->has_deturbo) {
         timer_add(&dev->deturbo_timer, sis_85c46x_deturbo_timer, dev, 0);
         timer_set_delay_u64(&dev->deturbo_timer, (uint64_t) (1000.0 * TIMER_USEC));
         machine_set_turbo_switch_present(1);
