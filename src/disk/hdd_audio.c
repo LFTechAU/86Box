@@ -317,9 +317,10 @@ hdd_audio_get_profile_rpm(int id)
     return audio_profiles[id].rpm;
 }
 
-/* Whether a profile is offered for a drive model: no RPM set, the same
-   RPM, or the model is in the profile's "models" list (comma-separated
-   internal names; a trailing '*' matches a prefix). */
+/* Whether a profile is offered for a drive model. A profile with a
+   "models" list (comma-separated internal names; a trailing '*' matches
+   a prefix) is offered for those models only; one without is offered
+   when it has no RPM set or the same RPM. */
 int
 hdd_audio_profile_fits(int id, uint32_t rpm, const char *model)
 {
@@ -330,8 +331,8 @@ hdd_audio_profile_fits(int id, uint32_t rpm, const char *model)
         return 0;
 
     config = &audio_profiles[id];
-    if ((config->rpm == 0) || (config->rpm == rpm))
-        return 1;
+    if (!config->models[0])
+        return (config->rpm == 0) || (config->rpm == rpm);
     if (!model || !model[0])
         return 0;
 
