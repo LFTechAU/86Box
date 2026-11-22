@@ -29,6 +29,7 @@
 #    include <windows.h>
 #endif
 
+#include <86box/fs_name.h>
 #include <86box/86box.h>
 #include <86box/hdd.h>
 #include <86box/hdd_audio.h>
@@ -51,6 +52,7 @@ extern SDL_Window         *sdl_win;
 
 int             rctrl_is_lalt;
 int             update_icons;
+int             usb_activity = 1;
 int             kbd_req_capture;
 int             hide_status_bar;
 int             hide_tool_bar;
@@ -332,6 +334,7 @@ main(int argc, char **argv)
     SDL_Event event;
     int       ret = 0;
 
+    fs_codepage_init();
     SDL_Init(0);
     ret = pc_init(argc, argv);
     if (ret == 0)

@@ -186,6 +186,7 @@ typedef struct gus_t {
 
     pc_timer_t samp_timer;
     uint64_t   samp_latch;
+    uint64_t   samp_latch_cur; /* period the sample timer runs at */
 
     uint8_t *ram;
     uint8_t *rom;
@@ -556,7 +557,7 @@ gus_gp_write(uint16_t addr, uint8_t val, void *priv)
                 if (gus->reg_ctrl & 0x08) {
                     if (gus->sb_nmi)
                         nmi_raise();
-                    else
+                    else if (gus->irq_midi != -1)
                         picint(1 << gus->irq_midi);
                 }
                 gus->usrr |= 0x08;
@@ -566,7 +567,7 @@ gus_gp_write(uint16_t addr, uint8_t val, void *priv)
                 if (gus->reg_ctrl & 0x10) {
                     if (gus->sb_nmi)
                         nmi_raise();
-                    else
+                    else if (gus->irq_midi != -1)
                         picint(1 << gus->irq_midi);
                 }
                 gus->usrr |= 0x20;
@@ -589,7 +590,7 @@ gus_gp_read(uint16_t addr, void *priv)
                 if (gus->reg_ctrl & 0x08) {
                     if (gus->sb_nmi)
                         nmi_raise();
-                    else
+                    else if (gus->irq_midi != -1)
                         picint(1 << gus->irq_midi);
                 }
                 ret = gus->gp1_out;
@@ -599,7 +600,7 @@ gus_gp_read(uint16_t addr, void *priv)
                 if (gus->reg_ctrl & 0x10) {
                     if (gus->sb_nmi)
                         nmi_raise();
-                    else
+                    else if (gus->irq_midi != -1)
                         picint(1 << gus->irq_midi);
                 }
                 ret = gus->gp2_out;
@@ -1397,6 +1398,14 @@ gus_write(uint16_t addr, uint8_t val, void *priv)
 
         case 0x200:
             gus->latch_enable = val;
+            /* Line out disable bit also mutes CD audio */
+            if (gus->type == GUS_MAX || gus->type == GUS_INTERWAVE || gus->daughter) {
+                if (val & 0x02) {
+                    gus->ad1848.cd_vol_l = 0;
+                    gus->ad1848.cd_vol_r = 0;
+                } else
+                    ad1848_update_cd_vol(&gus->ad1848);
+            }
             break;
 
         case 0x20b:
@@ -2332,7 +2341,15 @@ gus_poll_wave(void *priv)
 
     gus_update(gus);
 
-    timer_advance_u64(&gus->samp_timer, gus->samp_latch);
+    /* The guest changes the period by changing the voice count. Re-phase the
+       timer then: on a period equal to the output rate, at a phase where both
+       timers are due on the same integer timestamp, they swap order on every
+       tick, which makes gus_update() write two samples, then none. */
+    if (gus->samp_latch != gus->samp_latch_cur) {
+        gus->samp_latch_cur = gus->samp_latch;
+        timer_advance_u64(&gus->samp_timer, sound_poll_offset_delay(&gus->samp_timer, gus->samp_latch));
+    } else
+        timer_advance_u64(&gus->samp_timer, gus->samp_latch);
 
     gus->out_l = gus->out_r = 0;
 
@@ -3058,6 +3075,7 @@ static void
 gus_get_buffer(int32_t *buffer, uint16_t len, void *priv)
 {
     gus_t *gus = (gus_t *) priv;
+    uint8_t gf1_mute = (gus->latch_enable & 0x02) ? 1 : 0;
 
     if (((gus->type == GUS_MAX) && (gus->max_ctrl)) || gus->type == GUS_INTERWAVE || gus->daughter)
         ad1848_update(&gus->ad1848);
@@ -3070,13 +3088,15 @@ gus_get_buffer(int32_t *buffer, uint16_t len, void *priv)
             temp_l = (double) gus->buffer[0][c >> 1];
             temp_r = (double) gus->buffer[1][c >> 1];
             if (gus->type == GUS_MAX || gus->daughter) {
-                if (gus->max_ctrl || gus->daughter) {
+                if ((gus->max_ctrl || gus->daughter) && !gf1_mute) {
                     buffer[c]     += (int32_t) (gus->ad1848.buffer[c] / 2);
                     buffer[c + 1] += (int32_t) (gus->ad1848.buffer[c + 1] / 2);
                 }
                 ad1848_filter_channel(&gus->ad1848, AD1848_AUX1, &temp_l, &temp_r);
             } else
                 gus_ics2101_filter(&gus->ics2101, GUS_ICS2101_GF1_OUT, &temp_l, &temp_r);
+            if (gf1_mute)
+                temp_l = temp_r = 0;
             buffer[c]     += (int32_t) temp_l;
             buffer[c + 1] += (int32_t) temp_r;
         } else if (gus->type == GUS_INTERWAVE) {
@@ -3111,9 +3131,12 @@ gus_get_buffer(int32_t *buffer, uint16_t len, void *priv)
                 temp_l *= 2;
                 temp_r *= 2;
             }
+            /* Mixer Control bit 1 controls audio ouput for all sources on InterWave */
+            if (gf1_mute)
+                temp_l = temp_r = 0;
             buffer[c]     += (int32_t) temp_l;
             buffer[c + 1] += (int32_t) temp_r;
-        } else {
+        } else if (!gf1_mute) {
             buffer[c]     += (int32_t) gus->buffer[0][c >> 1];
             buffer[c + 1] += (int32_t) gus->buffer[1][c >> 1];
         }
@@ -3129,6 +3152,7 @@ static void
 gus_extreme_get_buffer(int32_t *buffer, uint16_t len, void *priv)
 {
     gus_t *gus = (gus_t *) priv;
+    uint8_t gf1_mute = (gus->latch_enable & 0x02) ? 1 : 0;
 
     gus_update(gus);
 
@@ -3139,6 +3163,8 @@ gus_extreme_get_buffer(int32_t *buffer, uint16_t len, void *priv)
         temp_r = (double) gus->buffer[1][c >> 1] * gus->ess->mixer_ess.auxb_r;
         temp_l *= gus->ess->mixer_ess.master_l;
         temp_r *= gus->ess->mixer_ess.master_r;
+        if (gf1_mute)
+            temp_l = temp_r = 0;
         buffer[c]     += (int32_t) temp_l;
         buffer[c + 1] += (int32_t) temp_r;
     }
@@ -3150,10 +3176,14 @@ void
 gus_filter_cd_audio(int channel, double *buffer, void *priv)
 {
     const gus_t *gus = (gus_t *) priv;
-    /* FIXME: No channel remapping possible with the current architecture */
-    if (gus->ics2101.channels[GUS_ICS2101_CD_IN].ctrl[channel] && gus->ics2101.channels[GUS_ICS2101_MASTER].ctrl[channel])
-        *buffer *= gus->ics2101.channels[GUS_ICS2101_CD_IN].level[channel] * gus->ics2101.channels[GUS_ICS2101_MASTER].level[channel];
-    else
+    if (gus->type == GUS_CLASSIC_37) {
+        /* FIXME: No channel remapping possible with the current architecture */
+        if (gus->ics2101.channels[GUS_ICS2101_CD_IN].ctrl[channel] && gus->ics2101.channels[GUS_ICS2101_MASTER].ctrl[channel])
+            *buffer *= gus->ics2101.channels[GUS_ICS2101_CD_IN].level[channel] * gus->ics2101.channels[GUS_ICS2101_MASTER].level[channel];
+        else
+            *buffer *= 0.0;
+    }
+    if (gus->latch_enable & 0x02)
         *buffer *= 0.0;
 }
 
@@ -3326,6 +3356,8 @@ gus_pnp_config_changed(const uint8_t ld, isapnp_device_config_t *config, void *p
             gus->cur_irq2 = 0;
             gus->cur_dma1 = 0;
             gus->cur_dma2 = 0;
+            gus->irq      = -1;
+            gus->irq_midi = -1;
             ad1848_setirq(&gus->ad1848, 0);
             ad1848_setdma(&gus->ad1848, 0);
             ad1848_setdma2(&gus->ad1848, 0);
@@ -3349,6 +3381,7 @@ gus_pnp_config_changed(const uint8_t ld, isapnp_device_config_t *config, void *p
                 if (config->irq[0].irq != ISAPNP_IRQ_DISABLED) {
                     gus->cur_irq1 = config->irq[0].irq;
                     gus->irq      = gus->cur_irq1;
+                    gus->irq_midi = gus->irq;
                     gus_log(gus->log, "Updating InterWave IRQ to %i\n", gus->cur_irq1);
                     ad1848_setirq(&gus->ad1848, gus->irq);
                 }
@@ -3630,6 +3663,10 @@ gus_init(UNUSED(const device_t *info))
 
     gus->log = log_open("GUS");
 
+    /* No IRQ until the IRQ latch selects one. */
+    gus->irq      = -1;
+    gus->irq_midi = -1;
+
     if ((info->local == GUS_CLASSIC) || (info->local == GUS_CLASSIC_34) || (info->local == GUS_CLASSIC_37))
         gus->gus_end_ram = gus_ram * 262144;
     else
@@ -3691,8 +3728,9 @@ gus_init(UNUSED(const device_t *info))
             ics2101_att[i] = pow(10.0, gain / 20.0);
         }
 
-        sound_set_cd_audio_filter(gus_filter_cd_audio, gus);
     }
+    if (gus->type <= GUS_CLASSIC_37 && !device_get_config_int("daughter"))
+        sound_set_cd_audio_filter(gus_filter_cd_audio, gus);
 
     if (gus->type == GUS_MAX) {
         ad1848_init(&gus->ad1848, AD1848_TYPE_CS4231);
@@ -3772,6 +3810,10 @@ gus_extreme_init(UNUSED(const device_t *info))
     gus_t  *gus     = calloc(1, sizeof(gus_t));
 
     gus->log = log_open("GUS");
+
+    /* No IRQ until the IRQ latch selects one. */
+    gus->irq      = -1;
+    gus->irq_midi = -1;
 
     /* Init ES1688 section */
     gus->ess = calloc(1, sizeof(sb_t));
@@ -3888,6 +3930,10 @@ gus_pnp_init(const device_t *info)
     gus_t  *gus     = calloc(1, sizeof(gus_t));
 
     gus->log = log_open("GUS");
+
+    /* No IRQ until the PnP configuration assigns one. */
+    gus->irq      = -1;
+    gus->irq_midi = -1;
 
     FILE *rom_fp;
 

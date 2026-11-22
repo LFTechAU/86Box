@@ -129,6 +129,9 @@ extern void sound_in_remove_handler(void (*put_buffer)(int16_t *buffer,
                                                         int len, void *priv),
                                     void *priv);
 
+struct pc_timer_t;
+extern uint64_t sound_poll_offset_delay(struct pc_timer_t *timer, uint64_t latch);
+
 extern void sound_in_start_input(void);
 extern void sound_in_stop_input(void);
 extern void sound_in_set_test_tone(double hz, double dbfs); /* automation "audio tone" */
@@ -295,6 +298,9 @@ extern const device_t sb_awe64_value_device;
 extern const device_t sb_awe64_device;
 extern const device_t sb_awe64_ide_device;
 extern const device_t sb_awe64_gold_device;
+extern const device_t emu8008_ct4600_device;
+extern const device_t emu8008_ct4650_device;
+extern const device_t emu8008_ct4655_device;
 
 /* Crystal CS423x */
 extern const device_t cs4232_device;
@@ -332,6 +338,9 @@ extern const device_t ess_solo1_onboard_device;
 
 /* Ensoniq AudioPCI */
 extern const device_t es1370_device;
+/* Aureal Vortex 2 */
+extern const device_t vortex2_device;
+
 extern const device_t es1371_device;
 extern const device_t es1371_onboard_device;
 extern const device_t es1373_device;

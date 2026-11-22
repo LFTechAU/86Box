@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-11-11 23:18+0000\n"
+"PO-Revision-Date: 2026-11-19 23:29+0000\n"
 "Last-Translator: sharkbyte16 <mjacobs74@protonmail.com>\n"
 "Language-Team: Dutch <https://weblate.86box.net/projects/86box/86box/nl/>\n"
 "Language: nl-NL\n"
@@ -51,7 +51,7 @@ msgstr "&Statusbalk verbergen"
 msgid "Hide &toolbar"
 msgstr "&Toolbar verbergen"
 
-msgid "&Resizeable window"
+msgid "&Resizable window"
 msgstr "&Venster met aanpasbare grootte"
 
 msgid "R&emember size && position"
@@ -246,6 +246,42 @@ msgstr "&Voorkeuren…"
 msgid "Sound &gain…"
 msgstr "&Geluidsversterking…"
 
+msgid "M&IDI output device"
+msgstr "M&IDI-uitgangsapparaat"
+
+msgid "Restart &device"
+msgstr "Herstart &apparaat"
+
+msgid "Send MIDI &command"
+msgstr "Stuur MIDI-opdracht"
+
+msgid "&GM System On"
+msgstr "&GM Systeem Aan"
+
+msgid "G&S Reset"
+msgstr "G&S Reset"
+
+msgid "&XG System On"
+msgstr "&XG Systeem Aan"
+
+msgid "&MT-32 Reset"
+msgstr "&MT-32 Reset"
+
+msgid "All &notes off"
+msgstr "Alle &notities uit"
+
+msgid "Show MIDI &LCD"
+msgstr "Toon MIDI-&LCD"
+
+msgid "MIDI LCD"
+msgstr "MIDI-LCD"
+
+msgid "Always on &top"
+msgstr "Altijd op de &voorgrond houden"
+
+msgid "&Close"
+msgstr "&Sluiten"
+
 msgid "Begin trace"
 msgstr "Begin traceren"
 
@@ -300,8 +336,8 @@ msgstr "&Leeg"
 msgid "Reload previous image"
 msgstr "Herlaad vorig imagebestand"
 
-msgid "&Folder…"
-msgstr "&Map…"
+msgid "Mount &folder…"
+msgstr "&Map aankoppelen…"
 
 msgid "Preferences"
 msgstr "Voorkeuren"
@@ -413,6 +449,15 @@ msgstr "Wachttoestanden:"
 
 msgid "MB"
 msgstr "MB"
+
+msgid "GB"
+msgstr "GB"
+
+msgid "%1 MB"
+msgstr "%1 MB"
+
+msgid "%1 GB"
+msgstr "%1 GB"
 
 msgid "Memory:"
 msgstr "Geheugen:"
@@ -786,8 +831,8 @@ msgstr "Tapestations:"
 msgid "ISA RTC:"
 msgstr "ISA RTC:"
 
-msgid "ISA Memory Expansion"
-msgstr "ISA-geheugenuitbreiding"
+msgid "ISA/MCA Memory Expansion"
+msgstr "ISA/MCA-geheugenuitbreiding"
 
 msgid "ISA ROM Cards"
 msgstr "ISA ROM-kaart"
@@ -853,10 +898,16 @@ msgid "Image %1"
 msgstr "Image %1"
 
 msgid "%1 could not find any usable ROM images.\n\nPlease <a href=\"%2\">download</a> a ROM set and extract it into the \"roms\" directory."
-msgstr "%1 kon geen bruikbare ROM imagebestanden vinden.\n\n<a href=\"%2\">Download</a> een ROM set en pak deze uit in de map \"roms\"."
+msgstr ""
+"%1 kan geen bruikbare ROM imagebestanden vinden.\n"
+"\n"
+"<a href=\"%2\">Download</a> een ROM set en pak deze uit in de map \"roms\"."
 
 msgid "(empty)"
 msgstr "(leeg)"
+
+msgid "(not available)"
+msgstr "(niet beschikbaar)"
 
 msgid "All files"
 msgstr "Alle bestanden"
@@ -1494,7 +1545,9 @@ msgid "Remove directory failed"
 msgstr "Verwijderen map mislukt"
 
 msgid "Some files in the machine's directory were unable to be deleted. Please delete them manually."
-msgstr "Enkele bestanden in de machinemap konden niet verwijderd worden. Verwijder deze handmatig."
+msgstr ""
+"Enkele bestanden in de machinemap kunnen niet verwijderd worden. Verwijder "
+"deze handmatig."
 
 msgid "Build"
 msgstr "Build"
@@ -2542,6 +2595,9 @@ msgstr "SLI"
 msgid "Start Address"
 msgstr "Startadres"
 
+msgid "Allow RAM up to the system ROM"
+msgstr "RAM toestaan tot aan het systeem-ROM"
+
 msgid "Contiguous Size"
 msgstr "Aaneengesloten grootte"
 
@@ -3116,13 +3172,16 @@ msgid "GLSL Error"
 msgstr "GLSL-fout"
 
 msgid "Could not load shader: %1"
-msgstr "Kon de shader niet laden: %1"
+msgstr "Kan de shader niet laden: %1"
 
 msgid "Could not load texture: %1"
-msgstr "Kon de textuur niet laden: %1"
+msgstr "Kan de textuur niet laden: %1"
 
 msgid "Could not compile shader:\n\n%1"
-msgstr "Kon de shader niet compileren:\n\n%1"
+msgstr ""
+"Kan de shader niet compileren:\n"
+"\n"
+"%1"
 
 msgid "Program not linked:\n\n%1"
 msgstr "Programma niet gelinkt:\n\n%1"
@@ -3146,7 +3205,7 @@ msgid "Move down"
 msgstr "Omlaag verplaatsen"
 
 msgid "Could not load file %1"
-msgstr "Kon bestand %1 niet laden"
+msgstr "Kan bestand %1 niet laden"
 
 msgid "Emulator"
 msgstr "Emulator"
@@ -3409,16 +3468,18 @@ msgid "&Fast forward"
 msgstr "&Snel vooruitspoelen"
 
 msgid "Fast forward at startup"
-msgstr ""
+msgstr "Snel vooruitspoelen vanaf opstarten"
 
 msgid "Start new machines in fast forward"
-msgstr ""
+msgstr "Start nieuwe machines met versneld vooruitspoelen"
 
 msgid "Only affects machines created from now on. Each machine can be changed in its settings, under Machine > Performance."
 msgstr ""
+"Heeft alleen effect op vanaf nu gecreëerde machines. De instellingen van "
+"elke machine kunnen gewijzigd worden onder Machine > Prestaties."
 
 msgid "Fast forward at &startup"
-msgstr ""
+msgstr "Snel vooruitspoelen vanaf op&starten"
 
 msgid "Fast forward"
 msgstr "Snel vooruitspoelen"
@@ -3472,10 +3533,10 @@ msgstr ""
 "en wordt daarom genegeerd."
 
 msgid "%s: Could not connect to %s: %s"
-msgstr "%s: Er kon geen verbinding worden gemaakt met %s: %s"
+msgstr "%s: Er kan geen verbinding worden gemaakt met %s: %s"
 
 msgid "%s: Could not create %s: %s"
-msgstr "%s: %s kon niet worden aangemaakt: %s"
+msgstr "%s: %s kan niet worden aangemaakt: %s"
 
 msgid "%s: Attached to %s"
 msgstr "%s: Toegevoegd aan %s"
@@ -3484,7 +3545,7 @@ msgid "%s: Virtual console already in use by %s"
 msgstr "%s: De Virtual Console wordt al gebruikt door %s"
 
 msgid "%s: Could not create terminal: %s"
-msgstr "%s: De terminal kon niet worden aangemaakt: %s"
+msgstr "%s: De terminal kan niet worden aangemaakt: %s"
 
 msgid "Auto-detect"
 msgstr "Automatische herkenning"
@@ -3638,7 +3699,7 @@ msgstr "Luminantiegrenswaarde (%)"
 
 msgid "VFIO: Could not open /dev/vfio/vfio: %s. Make sure the vfio-pci module is loaded."
 msgstr ""
-"VFIO: kon /dev/vfio/vfio niet openen: %s. Zorg dat de vfio-pci-module "
+"VFIO: kan /dev/vfio/vfio niet openen: %s. Zorg dat de vfio-pci-module "
 "geladen is."
 
 msgid "VFIO %s: Invalid device location."
@@ -3656,7 +3717,7 @@ msgid "VFIO %s: Device is not bound to vfio-pci."
 msgstr "VFIO %s: Apparaat is niet gekoppeld aan vfio-pci."
 
 msgid "VFIO %s: Could not open IOMMU group %d: %s"
-msgstr "VFIO %s: Kon IOMMU-groep niet openen %d: %s"
+msgstr "VFIO %s: Kan IOMMU-groep niet openen %d: %s"
 
 msgid "VFIO %s: IOMMU group %d is not viable. All devices in the group must be bound to vfio-pci."
 msgstr ""
@@ -3665,17 +3726,17 @@ msgstr ""
 
 msgid "VFIO: Could not map guest memory for DMA: %s. The locked memory limit (ulimit -l) may be too low."
 msgstr ""
-"VFIO: Kon het gastgeheugen niet toewijzen voor DMA: %s. De limiet voor "
+"VFIO: Kan het gastgeheugen niet toewijzen voor DMA: %s. De limiet voor "
 "vergrendeld geheugen (ulimit -l) is mogelijk te laag."
 
 msgid "VFIO %s: Could not read ROM file \"%s\"; using the device's own ROM."
 msgstr ""
-"VFIO %s: Kon het ROM-bestand \"%s\" niet lezen; de apparaat-eigen ROM wordt "
+"VFIO %s: Kan het ROM-bestand \"%s\" niet lezen; de apparaat-eigen ROM wordt "
 "gebruikt."
 
 msgid "VFIO %s: Could not read ROM file \"%s\"; the ROM is disabled."
 msgstr ""
-"VFIO %s: Kon het ROM-bestand \"%s\" niet lezen; de ROM is uitgeschakeld."
+"VFIO %s: Kan het ROM-bestand \"%s\" niet lezen; de ROM is uitgeschakeld."
 
 msgid "VFIO %s: The ROM looks invalid. A custom ROM can be loaded through the VFIO settings."
 msgstr ""
@@ -3707,7 +3768,7 @@ msgstr ""
 
 msgid "VFIO: Could not prepare the devices for passthrough:\n%s"
 msgstr ""
-"VFIO: Kon de apparaten niet voorbereiden op doorvoer:\n"
+"VFIO: Kan de apparaten niet voorbereiden op doorvoer:\n"
 "%s"
 
 msgid "VFIO: Administrator rights could not be requested. To prepare the devices for passthrough, run this command, then hard reset:\n\n%s"
@@ -3770,7 +3831,7 @@ msgid "Copied %1 bytes from %2 to the clipboard"
 msgstr "%1 bytes van %2 gekopieerd naar het klembord"
 
 msgid " (%1 could not be read)"
-msgstr " (%1 kon niet gelezen worden)"
+msgstr " (%1 kan niet gelezen worden)"
 
 msgid " of a %1 byte selection"
 msgstr " van een %1 byteselectie"
@@ -3784,8 +3845,8 @@ msgstr "Er is geen toegewezen geheugen in het opgevraagde bereik."
 msgid "The search is limited to %1 bytes."
 msgstr "De zoekopdracht is beperkt to %1 bytes."
 
-msgid "Searching memory..."
-msgstr "Geheugen aan het doorzoeken..."
+msgid "Searching memory…"
+msgstr "Geheugen aan het doorzoeken…"
 
 msgid "The search was cancelled. The selection did not move."
 msgstr "De zoekopdracht was afgebroken. De selectie is niet verplaatst."
@@ -3822,8 +3883,8 @@ msgstr "Kopieer selectie (hex)"
 msgid "Copy selection (ASCII)"
 msgstr "Kopieer selectie (ASCII)"
 
-msgid "Fill selection..."
-msgstr "Vul selectie..."
+msgid "Fill selection…"
+msgstr "Vul selectie…"
 
 msgid "Copy address"
 msgstr "Kopieer adres"
@@ -3831,8 +3892,8 @@ msgstr "Kopieer adres"
 msgid "Disassemble here"
 msgstr "Hier disassembleren"
 
-msgid "Dump memory from here..."
-msgstr "Dump geheugen vanaf hier..."
+msgid "Dump memory from here…"
+msgstr "Dump geheugen vanaf hier…"
 
 msgid "Memory viewer"
 msgstr "Geheugenviewer"
@@ -3861,8 +3922,8 @@ msgstr "Uitvoeren"
 msgid "Live update"
 msgstr "Live bijwerken"
 
-msgid "Dump..."
-msgstr "Dump..."
+msgid "Dump…"
+msgstr "Dump…"
 
 msgid "Commands"
 msgstr "Opdrachten"
@@ -3910,8 +3971,8 @@ msgstr "Vind volgende"
 msgid "Search downwards from the selection (F3)"
 msgstr "Achteruit zoeken vanaf de selectie (F3)"
 
-msgid "Range..."
-msgstr "Bereik..."
+msgid "Range…"
+msgstr "Bereik…"
 
 msgid "Search within an address range instead of all memory"
 msgstr "Zoek in een adresbereik in plaats van het gehele geheugen"
@@ -4030,8 +4091,8 @@ msgstr "Gestopt na stapsgewijs uitvoeren."
 msgid "Stopped."
 msgstr "Gestopt."
 
-msgid "Stepping..."
-msgstr "Stapsgewijs uitvoeren..."
+msgid "Stepping…"
+msgstr "Stapsgewijs uitvoeren…"
 
 msgid "Running."
 msgstr "Actief."
@@ -4148,8 +4209,10 @@ msgstr "gezet"
 msgid "cleared"
 msgstr "gewist"
 
-msgid "%1 breakpoint(s), linear addresses:"
-msgstr "%1 onderbrekingspunt(en), lineaire adressen:"
+msgid "%n breakpoint(s), linear addresses:"
+msgid_plural "%n breakpoints, linear addresses:"
+msgstr[0] "%1 onderbrekingspunt, lineaire adressen:"
+msgstr[1] "%1 onderbrekingspunten, lineaire adressen:"
 
 msgid "Pause the processor before accessing I/O ports."
 msgstr "Pauzeer de processor voordat I/O-poorten benaderd worden."
@@ -4159,9 +4222,6 @@ msgstr "Onbekende opdracht of ongeldige argumenten. Typ help voor de syntax."
 
 msgid "Dump memory"
 msgstr "Dump geheugen"
-
-msgid "Browse..."
-msgstr "Bladeren..."
 
 msgid "Start (hex, register or seg:off):"
 msgstr "Start (hexadecimaal, register of seg:off):"
@@ -4184,8 +4244,8 @@ msgstr ""
 "toegewezen en niet-toegankelijke bytes worden niet uitgelezen; in plaats "
 "daarvan wordt de opvulbyte ingevuld."
 
-msgid "Binary files (*.bin);;All files (*)"
-msgstr "Binaire bestanden (*.bin);;Alle bestanden (*)"
+msgid "Binary files"
+msgstr "Binaire bestanden"
 
 msgid "The length must be a hex number above 0."
 msgstr "De lengte moet een hexadecimaal getal groter dan 0 zijn."
@@ -4194,17 +4254,17 @@ msgid "The fill byte must be a hex number from 00 to FF."
 msgstr "De opvulbyte moet een hexadecimaal getal in het bereik 00 en FF zijn."
 
 msgid "Could not open %1 for writing."
-msgstr "Kon %1 niet openen voor schrijfbewerking."
+msgstr "Kan %1 niet openen voor schrijfbewerking."
 
-msgid "Dumping memory..."
-msgstr "Geheugen aan het dumpen..."
+msgid "Dumping memory…"
+msgstr "Geheugen aan het dumpen…"
 
 msgid "Could not write to %1."
-msgstr "Kon niet schrijven naar %1."
+msgstr "Kan niet schrijven naar %1."
 
 msgid "Dumped %1 bytes from %2 to %3 (%4 bytes could not be read and were filled)."
 msgstr ""
-"%1 bytes gedumpt van %2 naar %3 (%4 bytes konden niet worden uitgelezen en "
+"%1 bytes gedumpt van %2 naar %3 (%4 bytes kunnen niet worden uitgelezen en "
 "zijn opgevuld)."
 
 msgid "Enter hex bytes in pairs, e.g. \"8B 44 24 08\"."
@@ -4336,7 +4396,7 @@ msgstr "Uit (alleen met +VDR=1)"
 msgid "Caller ID between emulator instances (enable on both)"
 msgstr "Beller-ID tussen emulatorinstanties (op beide inschakelen)"
 
-msgid "Caller ID sent when dialling (number,name)"
+msgid "Caller ID sent when dialing (number,name)"
 msgstr "Beller-ID verzenden bij het bellen (nummer,naam)"
 
 msgid "Network to guest queue limit (back-pressure)"
@@ -4390,3 +4450,102 @@ msgstr "4-poorts USB 1.1-hub"
 
 msgid "USB Mass Storage"
 msgstr "USB-massaopslag"
+
+msgid "Mount folder as a temporary floppy"
+msgstr "Map als tijdelijke floppy koppelen"
+
+msgid "The selected drive does not support folder mounting."
+msgstr "Het geselecteerde station ondersteunt het koppelen van mappen niet."
+
+msgid "The contents exceed the capacity of the configured floppy drive."
+msgstr ""
+"De inhoud overschrijdt de capaciteit van het geconfigureerde diskettestation."
+
+msgid "Mount folder as a temporary removable disk"
+msgstr "Map als tijdelijke verwisselbare schijf koppelen"
+
+msgid "Unable to mount folder or archive"
+msgstr "Kan de map of het archief niet koppelen"
+
+msgid "The contents don't fit on any medium the drive takes, or a file is 4 GB or larger."
+msgstr ""
+"De inhoud past niet op een van de opslagmedia die het station ondersteunt, "
+"of een bestand is 4 GB of groter."
+
+msgid "There are too many files in the top folder for the root directory of the medium."
+msgstr "Er staan te veel bestanden in de hoofdmap van het opslagmedium."
+
+msgid "The temporary image could not be written."
+msgstr "De tijdelijke schijfimage kan niet worden weggeschreven."
+
+msgid "There is not enough memory to build the image."
+msgstr "Er is onvoldoende geheugen om de schijfkopie aan te maken."
+
+msgid "The folder or archive could not be read."
+msgstr "De map of het archief kan niet worden gelezen."
+
+msgid "Archives"
+msgstr "Archieven"
+
+msgid "New USB flash drive"
+msgstr "Nieuw USB-flashstation"
+
+msgid "&New USB flash drive…"
+msgstr "&Nieuw USB-flashstation…"
+
+msgid "unplugged"
+msgstr "losgekoppeld"
+
+msgid "&Unplug"
+msgstr "&Loskoppelen"
+
+msgid "&Unplug %1"
+msgstr "&Loskoppelen %1"
+
+msgid "Plug in %1 (%2)"
+msgstr "%1 (%2) aansluiten"
+
+msgid "&Move %1 to"
+msgstr "&Verplaats %1 naar"
+
+msgid "Size:"
+msgstr "Grootte:"
+
+msgid "Custom size:"
+msgstr "Aangepaste grootte:"
+
+msgid "None (blank)"
+msgstr "Geen (leeg)"
+
+msgid "FAT16"
+msgstr "FAT16"
+
+msgid "FAT32"
+msgstr "FAT32"
+
+msgid "Format:"
+msgstr "Formatteren:"
+
+msgid "Could not create %1."
+msgstr "Kan %1 niet aanmaken."
+
+msgid "%1 already exists. Replace it?"
+msgstr "%1 bestaat al. Wilt u dit vervangen?"
+
+msgid "USB port %1 (%2)"
+msgstr "USB-poort %1 (%2)"
+
+msgid "USB port"
+msgstr "USB-poort"
+
+msgid "PCI card"
+msgstr "PCI-kaart"
+
+msgid "hub"
+msgstr "hub"
+
+msgid "board"
+msgstr "kaart"
+
+msgid "now in port %1"
+msgstr "nu in poort %1"

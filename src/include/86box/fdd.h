@@ -188,6 +188,7 @@ typedef struct fdd_ctrl_t {
     fdd_sector_id_t (*get_read_track_sector)(void *priv);
     void        (*request_next_sector_id)(void *priv);
     void        (*stop_id_request)(void *priv);
+    void        (*index_pulse)(void *priv);
 } fdd_ctrl_t;
 
 /* One command's parameters, as the controller holds them. The controller
@@ -289,6 +290,7 @@ typedef struct fdd_drive_t {
     int                check_bpb;
     int                seek_in_progress;
     int                driveloader;
+    int                folder_image;
     int                audio_profile;
     /*
        The image is write-protected (is either an advanced sector-based image, has
@@ -343,6 +345,9 @@ extern int curdrive;
 extern int     fdd_time;
 extern int64_t floppytime;
 
+/* Mounts a folder or an archive and returns a fat_image_result_t; if left_out isn't NULL, it gets the
+   FAT_IMAGE_LEFT_OUT_* flags of what didn't fit. */
+extern int  fdd_mount_folder(void *priv, const char *path, int read_only, int *left_out);
 extern void fdd_load(void *priv, char *fn);
 extern void fdd_new(void *priv, char *fn);
 extern void fdd_close(void *priv);

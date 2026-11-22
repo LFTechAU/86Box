@@ -24,6 +24,9 @@ add_library(snd OBJECT
     snd_opl_ymfm.cpp
     snd_resid.cpp
     midi.c
+    midi_lcd.c
+    midi_lcd_mt32.c
+    midi_lcd_sc55.c
     snd_speaker.c
     snd_lpt_adlipt.c
     snd_lpt_cms.c
@@ -39,6 +42,8 @@ add_library(snd OBJECT
     snd_ad1816.c
     snd_ad1848.c
     snd_audiopci.c
+    snd_vortex2.c
+    snd_vortex2_core.c
     snd_azt2316a.c
     snd_azt2320.c
     snd_cms.c
@@ -52,6 +57,7 @@ add_library(snd OBJECT
     snd_sb.c
     snd_sb_dsp.c
     snd_emu8k.c
+    snd_emu8008.c
     snd_mmb.c
     snd_mozart.c
     snd_mpu401.c
@@ -163,16 +169,27 @@ if(RTMIDI)
 endif()
 
 if(FLUIDSYNTH)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(FLUIDSYNTH REQUIRED IMPORTED_TARGET fluidsynth)
-    target_link_libraries(86Box PkgConfig::FLUIDSYNTH)
-    if(STATIC_BUILD)
-        target_link_libraries(86Box -static ${FLUIDSYNTH_STATIC_LIBRARIES} -fopenmp)
-        if(WIN32)
-            add_compile_definitions(FLUIDSYNTH_NOT_A_DLL)
+    if(NOT STATIC_BUILD)
+        # Shared libraries do not need the private dependencies queried by pkg-config.
+        find_package(FluidSynth CONFIG QUIET)
+    endif()
 
-            if(CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64")
-                target_link_libraries(86Box psapi)
+    if(NOT STATIC_BUILD AND TARGET FluidSynth::libfluidsynth)
+        target_link_libraries(86Box FluidSynth::libfluidsynth)
+        target_link_libraries(snd PRIVATE FluidSynth::libfluidsynth)
+    else()
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(FLUIDSYNTH REQUIRED IMPORTED_TARGET fluidsynth)
+        target_link_libraries(86Box PkgConfig::FLUIDSYNTH)
+        target_link_libraries(snd PRIVATE PkgConfig::FLUIDSYNTH)
+        if(STATIC_BUILD)
+            target_link_libraries(86Box -static ${FLUIDSYNTH_STATIC_LIBRARIES} -fopenmp)
+            if(WIN32)
+                add_compile_definitions(FLUIDSYNTH_NOT_A_DLL)
+
+                if(CMAKE_SYSTEM_PROCESSOR STREQUAL "ARM64")
+                    target_link_libraries(86Box psapi)
+                endif()
             endif()
         endif()
     endif()
@@ -207,10 +224,7 @@ target_link_libraries(86Box esfmu)
 add_subdirectory(ymfm)
 target_link_libraries(86Box ymfm)
 
-if(OPL4ML)
-    target_compile_definitions(snd PRIVATE USE_OPL4ML)
-    target_sources(snd PRIVATE midi_opl4.c midi_opl4_yrw801.c)
-endif()
+target_sources(snd PRIVATE midi_opl4.c midi_opl4_yrw801.c)
 
 if(SOUNDCANVAS)
     target_compile_definitions(snd PRIVATE USE_SOUNDCANVAS)

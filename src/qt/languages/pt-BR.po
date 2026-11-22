@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2026-11-12 21:11+0000\n"
+"PO-Revision-Date: 2026-11-18 18:28+0000\n"
 "Last-Translator: Nelson Kerber Hennemann Filho <nelsonhf@outlook.com>\n"
 "Language-Team: Portuguese (Brazil) <https://weblate.86box.net/projects/86box/"
 "86box/pt_BR/>\n"
@@ -52,7 +52,7 @@ msgstr "Ocultar barra de &status"
 msgid "Hide &toolbar"
 msgstr "Ocultar barra de &ferramentas"
 
-msgid "&Resizeable window"
+msgid "&Resizable window"
 msgstr "&Janela redimensionável"
 
 msgid "R&emember size && position"
@@ -247,6 +247,42 @@ msgstr "&Preferências…"
 msgid "Sound &gain…"
 msgstr "&Ganho de som…"
 
+msgid "M&IDI output device"
+msgstr "Dispositivo de saída M&IDI"
+
+msgid "Restart &device"
+msgstr "Reiniciar &dispositivo"
+
+msgid "Send MIDI &command"
+msgstr "Enviar &comando MIDI"
+
+msgid "&GM System On"
+msgstr "Liga &GM System"
+
+msgid "G&S Reset"
+msgstr "Resetar G&S"
+
+msgid "&XG System On"
+msgstr "Liga &XG System"
+
+msgid "&MT-32 Reset"
+msgstr "Resetar &MT-32"
+
+msgid "All &notes off"
+msgstr "Desligar todas &notas"
+
+msgid "Show MIDI &LCD"
+msgstr "Mostrar &LCD MIDI"
+
+msgid "MIDI LCD"
+msgstr "LCD MIDI"
+
+msgid "Always on &top"
+msgstr "Sempre &visível"
+
+msgid "&Close"
+msgstr "&Fechar"
+
 msgid "Begin trace"
 msgstr "Inicio do rastreamento"
 
@@ -301,8 +337,8 @@ msgstr "&Vazio"
 msgid "Reload previous image"
 msgstr "Recarregar imagem anterior"
 
-msgid "&Folder…"
-msgstr "&Pasta…"
+msgid "Mount &folder…"
+msgstr "Montar &pasta…"
 
 msgid "Preferences"
 msgstr "Preferências"
@@ -414,6 +450,15 @@ msgstr "Estados de espera:"
 
 msgid "MB"
 msgstr "MB"
+
+msgid "GB"
+msgstr "GB"
+
+msgid "%1 MB"
+msgstr "%1 MB"
+
+msgid "%1 GB"
+msgstr "%1 GB"
 
 msgid "Memory:"
 msgstr "Memória:"
@@ -786,8 +831,8 @@ msgstr "Drives de fita:"
 msgid "ISA RTC:"
 msgstr "RTC ISA:"
 
-msgid "ISA Memory Expansion"
-msgstr "Expansão de memória ISA"
+msgid "ISA/MCA Memory Expansion"
+msgstr "Expansão de memória ISA/MCA"
 
 msgid "ISA ROM Cards"
 msgstr "Placas ROM ISA"
@@ -857,6 +902,9 @@ msgstr "O %1 não conseguiu encontrar nenhuma imagem de ROM utilizável.\n\nPor 
 
 msgid "(empty)"
 msgstr "(vazio)"
+
+msgid "(not available)"
+msgstr "(não disponível)"
 
 msgid "All files"
 msgstr "Todos os arquivos"
@@ -1342,7 +1390,7 @@ msgstr "Usando %1"
 
 msgid "%n machine(s) active"
 msgid_plural "%n machines active"
-msgstr[0] "%n máquina(s) ativa(s)"
+msgstr[0] "%n máquina ativa"
 msgstr[1] "%n máquinas ativas"
 
 msgid " (+%n more)"
@@ -2545,6 +2593,9 @@ msgstr "SLI"
 
 msgid "Start Address"
 msgstr "Endereço inicial"
+
+msgid "Allow RAM up to the system ROM"
+msgstr "Permitir RAM até a ROM do sistema"
 
 msgid "Contiguous Size"
 msgstr "Tamanho contíguo"
@@ -3783,8 +3834,8 @@ msgstr "Não há memória mapeada no intervalo requerido."
 msgid "The search is limited to %1 bytes."
 msgstr "A pesquisa é limitada a %1 bytes."
 
-msgid "Searching memory..."
-msgstr "Pesquisando memória..."
+msgid "Searching memory…"
+msgstr "Pesquisando memória…"
 
 msgid "The search was cancelled. The selection did not move."
 msgstr "A pesquisa foi cancelada. A seleção não se moveu."
@@ -3819,8 +3870,8 @@ msgstr "Copiar seleção (hex)"
 msgid "Copy selection (ASCII)"
 msgstr "Copiar seleção (ASCII)"
 
-msgid "Fill selection..."
-msgstr "Preencher seleção..."
+msgid "Fill selection…"
+msgstr "Preencher seleção…"
 
 msgid "Copy address"
 msgstr "Copiar endereço"
@@ -3828,8 +3879,8 @@ msgstr "Copiar endereço"
 msgid "Disassemble here"
 msgstr "Desmontar aqui"
 
-msgid "Dump memory from here..."
-msgstr "Despejar memória daqui..."
+msgid "Dump memory from here…"
+msgstr "Despejar memória daqui…"
 
 msgid "Memory viewer"
 msgstr "Visualizador de memória"
@@ -3858,8 +3909,8 @@ msgstr "Ir"
 msgid "Live update"
 msgstr "Atualização em tempo real"
 
-msgid "Dump..."
-msgstr "Despejo..."
+msgid "Dump…"
+msgstr "Despejo…"
 
 msgid "Commands"
 msgstr "Comandos"
@@ -3903,8 +3954,8 @@ msgstr "Encontrar próximo"
 msgid "Search downwards from the selection (F3)"
 msgstr "Procurar para baixo da seleção (F3)"
 
-msgid "Range..."
-msgstr "Intervalo..."
+msgid "Range…"
+msgstr "Intervalo…"
 
 msgid "Search within an address range instead of all memory"
 msgstr "Procura dentro de um intervalo de endereço ao invés de toda a memória"
@@ -4011,8 +4062,8 @@ msgstr "Parado após dar um passo."
 msgid "Stopped."
 msgstr "Parado."
 
-msgid "Stepping..."
-msgstr "Dando um passo..."
+msgid "Stepping…"
+msgstr "Dando um passo…"
 
 msgid "Running."
 msgstr "Executando."
@@ -4083,8 +4134,10 @@ msgstr "setar"
 msgid "cleared"
 msgstr "limpo"
 
-msgid "%1 breakpoint(s), linear addresses:"
-msgstr "%1 breakpoint(s), endereços lineares:"
+msgid "%n breakpoint(s), linear addresses:"
+msgid_plural "%n breakpoints, linear addresses:"
+msgstr[0] "%1 breakpoint, endereços lineares:"
+msgstr[1] "%1 breakpoints, endereços lineares:"
 
 msgid "Pause the processor before accessing I/O ports."
 msgstr "Pause o processador antes de acessar portas de I/O."
@@ -4094,9 +4147,6 @@ msgstr "Comando desconhecido ou argumentos inválidos. Digite help para sintaxe.
 
 msgid "Dump memory"
 msgstr "Despejar memória"
-
-msgid "Browse..."
-msgstr "Navegar..."
 
 msgid "Start (hex, register or seg:off):"
 msgstr "Início (hex, registrador ou seg:off):"
@@ -4116,8 +4166,8 @@ msgstr "Arquivo:"
 msgid "Only RAM and other directly mapped memory is read. Unmapped and inaccessible bytes are not read; the fill byte is written in their place."
 msgstr "Apenas RAM e outra memória diretamente mapeada é lida. Bytes inacessíveis e não mapeados não são lidos; o byte de preenchimento é escrito no seu lugar."
 
-msgid "Binary files (*.bin);;All files (*)"
-msgstr "Arquivos binários (*.bin);;Todos os arquivos (*)"
+msgid "Binary files"
+msgstr "Arquivos binários"
 
 msgid "The length must be a hex number above 0."
 msgstr "O comprimento precisa ser um número hex acima de 0."
@@ -4128,8 +4178,8 @@ msgstr "O byte de preenchimento precisa ser um número hex de 00 a FF."
 msgid "Could not open %1 for writing."
 msgstr "Não foi possível abrir %1 para gravação."
 
-msgid "Dumping memory..."
-msgstr "Despejando memória..."
+msgid "Dumping memory…"
+msgstr "Despejando memória…"
 
 msgid "Could not write to %1."
 msgstr "Não foi possível gravar para %1."
@@ -4266,7 +4316,7 @@ msgstr "Desligado (apenas com +VDR=1)"
 msgid "Caller ID between emulator instances (enable on both)"
 msgstr "ID do chamador entre instâncias do emulador (habilitado em ambos)"
 
-msgid "Caller ID sent when dialling (number,name)"
+msgid "Caller ID sent when dialing (number,name)"
 msgstr "ID do chamador enviado quando discando (número,nome)"
 
 msgid "Network to guest queue limit (back-pressure)"
@@ -4316,3 +4366,101 @@ msgstr "Hub 4-portas USB 1.1"
 
 msgid "USB Mass Storage"
 msgstr "Armazenamento em massa USB"
+
+msgid "Mount folder as a temporary floppy"
+msgstr "Montar pasta como um disquete temporário"
+
+msgid "The selected drive does not support folder mounting."
+msgstr "O drive selecionado não suporta montagem de pasta."
+
+msgid "The contents exceed the capacity of the configured floppy drive."
+msgstr "O conteúdo excede a capacidade do drive de disquete configurado."
+
+msgid "Mount folder as a temporary removable disk"
+msgstr "Montar pasta como um disco removível temporário"
+
+msgid "Unable to mount folder or archive"
+msgstr "Não foi possível montar a pasta ou arquivo"
+
+msgid "The contents don't fit on any medium the drive takes, or a file is 4 GB or larger."
+msgstr ""
+"O conteúdo não cabe em qualquer mídia que o drive aceita, ou um arquivo é de "
+"4GB ou maior."
+
+msgid "There are too many files in the top folder for the root directory of the medium."
+msgstr "Há muitos arquivos na pasta principal para o diretório root da mídia."
+
+msgid "The temporary image could not be written."
+msgstr "A imagem temporária não pode ser escrita."
+
+msgid "There is not enough memory to build the image."
+msgstr "Não há memória suficiente para criar a imagem."
+
+msgid "The folder or archive could not be read."
+msgstr "Não foi possível ler a pasta ou o arquivo."
+
+msgid "Archives"
+msgstr "Arquivos"
+
+msgid "New USB flash drive"
+msgstr "Novo disco flash USB"
+
+msgid "&New USB flash drive…"
+msgstr "&Novo disco flash USB…"
+
+msgid "unplugged"
+msgstr "desconectado"
+
+msgid "&Unplug"
+msgstr "&Desconectar"
+
+msgid "&Unplug %1"
+msgstr "&Desconectar %1"
+
+msgid "Plug in %1 (%2)"
+msgstr "Conectar em %1 (%2)"
+
+msgid "&Move %1 to"
+msgstr "&Mover %1 para"
+
+msgid "Size:"
+msgstr "Tamanho:"
+
+msgid "Custom size:"
+msgstr "Tamanho personalizado:"
+
+msgid "None (blank)"
+msgstr "Nenhum (em branco)"
+
+msgid "FAT16"
+msgstr "FAT16"
+
+msgid "FAT32"
+msgstr "FAT32"
+
+msgid "Format:"
+msgstr "Formato:"
+
+msgid "Could not create %1."
+msgstr "Não foi possível criar %1."
+
+msgid "%1 already exists. Replace it?"
+msgstr "%1 já existe. Substituir?"
+
+msgid "USB port %1 (%2)"
+msgstr "Porta USB %1 (%2)"
+
+msgid "USB port"
+msgstr "Porta USB"
+
+msgid "PCI card"
+msgstr "Placa PCI"
+
+msgid "hub"
+msgstr "hub"
+
+msgid "board"
+msgstr "placa"
+
+msgid "now in port %1"
+msgstr "agora na porta %1"
