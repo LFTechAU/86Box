@@ -22,6 +22,11 @@
 #define EMU_NAME    "@CMAKE_PROJECT_NAME@"
 #define EMU_NAME_W  LSTR(EMU_NAME)
 
+/* The name this build shows the user. EMU_NAME stays "86Box", as the
+   settings, ROM and asset paths are built from it. */
+#define EMU_BRAND      "LFTech 86Box"
+#define EMU_BRAND_SITE "github.com/LFTechAU/86Box"
+
 #define EMU_VERSION       "@CMAKE_PROJECT_VERSION@"
 #define EMU_VERSION_W     LSTR(EMU_VERSION)
 #define EMU_VERSION_MAJ   @CMAKE_PROJECT_VERSION_MAJOR@

@@ -391,7 +391,7 @@ MainWindow::MainWindow(QWidget *parent)
     QString vmname(vm_name);
     if (vmname.at(vmname.size() - 1) == '"' || vmname.at(vmname.size() - 1) == '\'')
         vmname.truncate(vmname.size() - 1);
-    this->setWindowTitle(QString("%1 - %2 %3").arg(vmname, EMU_NAME, EMU_VERSION_FULL));
+    this->setWindowTitle(QString("%1 - %2 %3").arg(vmname, EMU_BRAND, EMU_VERSION_FULL));
 
     connect(this, &MainWindow::forceInterpretationCompleted, this, [this]() {
         const auto fi_icon      = cpu_force_interpreter ? QIcon(":/menuicons/qt/icons/recompiler.ico") : QIcon(":/menuicons/qt/icons/interpreter.ico");
@@ -2888,7 +2888,7 @@ MainWindow::applyGlobalPreferences()
     QString vmname(vm_name);
     if (vmname.at(vmname.size() - 1) == '"' || vmname.at(vmname.size() - 1) == '\'')
         vmname.truncate(vmname.size() - 1);
-    setWindowTitle(QString("%1 - %2 %3").arg(vmname, EMU_NAME, EMU_VERSION_FULL));
+    setWindowTitle(QString("%1 - %2 %3").arg(vmname, EMU_BRAND, EMU_VERSION_FULL));
     QString msg = status->getMessage();
     status.reset(new MachineStatus(this));
     refreshMediaMenu();

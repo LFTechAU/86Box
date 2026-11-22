@@ -1,3 +1,16 @@
+LFTech 86Box
+============
+
+This is **LFTech 86Box**, an unofficial build of [86Box](https://github.com/86Box/86Box) (branch `soyo461`). It adds:
+
+- LFTech mainboards and BIOSes, including the SOYO 486 VESA (SiS 461) and DataExpert OPTi-291WB
+- A Turbo switch and a beige front panel with Power, Turbo and HDD LEDs and a MHz display
+- Recorded hard disk sound profiles
+
+Please report problems with this build here, not to the 86Box team. It is released under the same GNU General Public License as 86Box. BIOS ROM images are not part of this repository and remain the property of their copyright holders.
+
+---
+
 (We need help in developing this emulator! See https://github.com/86Box/86Box/issues/7386 for details. Any and all help is appreciated.)
 
 86Box

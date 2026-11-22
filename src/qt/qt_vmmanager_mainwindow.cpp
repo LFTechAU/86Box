@@ -54,7 +54,7 @@ VMManagerMainWindow::
     // Connect signals from the VMManagerMain widget
     connect(vmm, &VMManagerMain::selectionOrStateChanged, this, &VMManagerMainWindow::vmmStateChanged);
 
-    setWindowTitle(tr("%1 VM Manager").arg(EMU_NAME));
+    setWindowTitle(tr("%1 VM Manager").arg(EMU_BRAND));
     setCentralWidget(vmm);
 
     // Set up the buttons
@@ -260,7 +260,7 @@ VMManagerMainWindow::updateLanguage()
     Preferences::loadTranslators(QCoreApplication::instance());
     Preferences::reloadStrings();
     ui->retranslateUi(this);
-    setWindowTitle(tr("%1 VM Manager").arg(EMU_NAME));
+    setWindowTitle(tr("%1 VM Manager").arg(EMU_BRAND));
     emit languageUpdated();
 }
 
@@ -288,7 +288,7 @@ VMManagerMainWindow::closeEvent(QCloseEvent *event)
 {
     int running = vmm->getActiveMachineCount();
     if (running > 0) {
-        QMessageBox warningbox(QMessageBox::Icon::Warning, tr("%1 VM Manager").arg(EMU_NAME), tr("%n machine(s) are currently active. Are you sure you want to exit the VM manager anyway?", "", running), QMessageBox::Yes | QMessageBox::No, this);
+        QMessageBox warningbox(QMessageBox::Icon::Warning, tr("%1 VM Manager").arg(EMU_BRAND), tr("%n machine(s) are currently active. Are you sure you want to exit the VM manager anyway?", "", running), QMessageBox::Yes | QMessageBox::No, this);
         warningbox.exec();
         if (warningbox.result() == QMessageBox::No) {
             event->ignore();

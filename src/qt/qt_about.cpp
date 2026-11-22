@@ -45,11 +45,15 @@ About::About(QWidget *parent)
 #    define DYNAREC_STR "no dynarec"
 #endif
     versioninfo.append(QString(" [%1, %2]").arg(QSysInfo::buildCpuArchitecture(), tr(DYNAREC_STR)));
-    setText(QString("<b>%1 v%2%3</b>").arg(EMU_NAME, EMU_VERSION_FULL, versioninfo));
-    setInformativeText(tr("An emulator of old computers\n\nAuthors: Miran Grča (OBattler), RichardG867, Jasmine Iwanek, TC1995, coldbrewed, Teemu Korhonen (Manaatti), Joakim L. Gilje, Adrien Moulin (elyosh), Daniel Balsom (gloriouscow), Cacodemon345, Fred N. van Kempen (waltje), Tiseno100, reenigne, and others.\n\nWith previous core contributions from Sarah Walker, leilei, JohnElliott, greatpsycho, and others.\n\nReleased under the GNU General Public License version 2 or later. See LICENSE for more information.").replace("\n", "<br>"));
-    setWindowTitle(tr("About %1").arg(EMU_NAME));
+    setText(QString("<b>%1 v%2%3</b>").arg(EMU_BRAND, EMU_VERSION_FULL, versioninfo));
+    setInformativeText(QString(tr("An unofficial build of 86Box by LFTech, adding the LFTech mainboards and BIOSes, the Turbo switch, the front panel and recorded hard disk sounds. Please report problems with it to LFTech, not to the 86Box team.") + "\n\n" + tr("Based on 86Box, an emulator of old computers\n\nAuthors: Miran Grča (OBattler), RichardG867, Jasmine Iwanek, TC1995, coldbrewed, Teemu Korhonen (Manaatti), Joakim L. Gilje, Adrien Moulin (elyosh), Daniel Balsom (gloriouscow), Cacodemon345, Fred N. van Kempen (waltje), Tiseno100, reenigne, and others.\n\nWith previous core contributions from Sarah Walker, leilei, JohnElliott, greatpsycho, and others.\n\nReleased under the GNU General Public License version 2 or later. See LICENSE for more information.")).replace("\n", "<br>"));
+    setWindowTitle(tr("About %1").arg(EMU_BRAND));
     const auto closeButton = addButton("OK", QMessageBox::ButtonRole::AcceptRole);
     setEscapeButton(closeButton);
+    const auto brandSiteButton = addButton(EMU_BRAND_SITE, QMessageBox::ButtonRole::HelpRole);
+    brandSiteButton->connect(brandSiteButton, &QPushButton::released, []() {
+        QDesktopServices::openUrl(QUrl("https://" EMU_BRAND_SITE));
+    });
     const auto webSiteButton = addButton(EMU_SITE, QMessageBox::ButtonRole::HelpRole);
     webSiteButton->connect(webSiteButton, &QPushButton::released, []() {
         QDesktopServices::openUrl(QUrl("https://" EMU_SITE));
