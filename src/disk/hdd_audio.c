@@ -561,12 +561,24 @@ hdd_audio_reset(void)
     int was_spinning[HDD_NUM];
     int was_running[HDD_NUM];
     int was_pos[HDD_NUM];
+    int was_stopping[HDD_NUM];
+    int was_stop_pos[HDD_NUM];
     const int reset_button = hdd_audio_reset_button;
     hdd_audio_reset_button = 0;
     for (int i = 0; i < HDD_NUM; i++) {
         was_spinning[i] = -1;
         was_running[i]  = 0;
         was_pos[i]      = 0;
+        was_stopping[i] = -1;
+        was_stop_pos[i] = 0;
+    }
+    /* Drives still spinning down after the power switch was turned off:
+       the platters have to stop before the motor starts them again. */
+    for (int i = 0; i < active_drive_count; i++) {
+        if (drive_states[i].spindle_state == HDD_SPINDLE_STOPPING) {
+            was_stopping[drive_states[i].hdd_index] = drive_states[i].profile_id;
+            was_stop_pos[drive_states[i].hdd_index] = drive_states[i].spindle_transition_pos;
+        }
     }
     for (int i = 0; hdd_audio_powered && (i < active_drive_count); i++) {
         if ((drive_states[i].spindle_state == HDD_SPINDLE_RUNNING) ||
@@ -668,7 +680,17 @@ hdd_audio_reset(void)
             hdd_audio_mech_warm_reset(state);
             continue;
         }
-        if (!reset_button && (was_spinning[state->hdd_index] == state->profile_id) && samples->spindle_stop_buffer &&
+        if (!reset_button && (was_stopping[state->hdd_index] == state->profile_id) && samples->spindle_stop_buffer &&
+            (was_stop_pos[state->hdd_index] < samples->spindle_stop_samples) && hdd_audio_mutex) {
+            /* Switched back on while spinning down: finish the spin-down,
+               then spin up. */
+            thread_wait_mutex(hdd_audio_mutex);
+            state->spindle_state          = HDD_SPINDLE_STOPPING;
+            state->spindle_transition_pos = was_stop_pos[state->hdd_index];
+            state->restart_after_stop     = 1;
+            thread_release_mutex(hdd_audio_mutex);
+            stop_us = (double) (samples->spindle_stop_samples - was_stop_pos[state->hdd_index]) * 1000000.0 / 48000.0;
+        } else if (!reset_button && (was_spinning[state->hdd_index] == state->profile_id) && samples->spindle_stop_buffer &&
             (samples->spindle_stop_samples > 0) && hdd_audio_mutex) {
             thread_wait_mutex(hdd_audio_mutex);
             state->spindle_state          = HDD_SPINDLE_STOPPING;
