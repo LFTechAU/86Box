@@ -1012,6 +1012,26 @@ extern const device_t  vli486sv2g_device;
                          { .description = "+64 clocks", .value = 64 },                \
                          { .description = "" } }                                      \
     }
+/* The 386 boards stop at +8: with more, the AMI BIOS halts at an early
+   timing test (POST code 13h) before the screen comes on. */
+#define MACHINE_DRAM_EXTRA_386_CONFIG(def)                                            \
+    {                                                                                 \
+        .name        = "dram_extra",                                                  \
+        .description = "Extra DRAM wait with cache off",                              \
+        .type        = CONFIG_SELECTION,                                              \
+        .default_int = def,                                                           \
+        .selection   = { { .description = "None, chipset timing", .value = 0 },       \
+                         { .description = "+1 clocks", .value = 1 },                  \
+                         { .description = "+2 clocks", .value = 2 },                  \
+                         { .description = "+3 clocks", .value = 3 },                  \
+                         { .description = "+4 clocks", .value = 4 },                  \
+                         { .description = "+5 clocks", .value = 5 },                  \
+                         { .description = "+6 clocks", .value = 6 },                  \
+                         { .description = "+7 clocks", .value = 7 },                  \
+                         { .description = "+8 clocks", .value = 8 },                  \
+                         { .description = "" } }                                      \
+    }
+#define MACHINE_DRAM_EXTRA_386_MAX 8
 extern const device_t  av4_device;
 extern const device_t  isa486_device;
 extern const device_t  machine_deturbo_device;

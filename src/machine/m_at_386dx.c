@@ -315,7 +315,7 @@ static const device_config_t ecs386v_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 08/08/93 by LFTech"),
     MACHINE_ALI1429_CACHE_CONFIG(0x20),
-    MACHINE_DRAM_EXTRA_CONFIG(4),
+    MACHINE_DRAM_EXTRA_386_CONFIG(4),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -369,7 +369,7 @@ machine_at_ecs386v_init(const machine_t *model)
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
+    cpu_mem_extra_cycles = machine_lftech ? MIN(machine_get_config_int("dram_extra"), MACHINE_DRAM_EXTRA_386_MAX) : 0;
     cpu_update_waitstates();
 
     kbc_at_set_ami_line_hook(device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params),
@@ -503,15 +503,6 @@ static const device_config_t opti291wb_config[] = {
             { .description = "+6 clocks", .value = 6 },
             { .description = "+7 clocks", .value = 7 },
             { .description = "+8 clocks", .value = 8 },
-            { .description = "+10 clocks", .value = 10 },
-            { .description = "+12 clocks", .value = 12 },
-            { .description = "+14 clocks", .value = 14 },
-            { .description = "+16 clocks", .value = 16 },
-            { .description = "+20 clocks", .value = 20 },
-            { .description = "+24 clocks", .value = 24 },
-            { .description = "+32 clocks", .value = 32 },
-            { .description = "+48 clocks", .value = 48 },
-            { .description = "+64 clocks", .value = 64 },
             { .description = "" }
         }
     },
@@ -581,7 +572,7 @@ machine_at_opti291wb_init(const machine_t *model)
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
        pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
+    cpu_mem_extra_cycles = machine_lftech ? MIN(machine_get_config_int("dram_extra"), MACHINE_DRAM_EXTRA_386_MAX) : 0;
     cpu_update_waitstates();
 
     kbc = device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
