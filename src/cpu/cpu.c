@@ -196,6 +196,10 @@ int cpu_waitstates;
 /* Extra CPU clocks added to every uncached memory bus cycle, set by machines
    whose DRAM is slower than the CPU table timing assumes. */
 int cpu_mem_extra_cycles;
+/* Set while the BIOS counts memory at POST (machine.c): the external
+   cache is then left out of the DRAM timing, as on boards whose BIOS
+   counts with the cache still off. */
+int cpu_mem_count_uncached;
 int io_waitstates; /* Extra cycles added to IN/OUT instruction timing (x86_ops_io.h) -
                        cpu_waitstates only ever throttles memory bus cycles; this covers
                        I/O port cycles, which real ISA-bus hardware paces at a fixed bus
@@ -5651,7 +5655,7 @@ cpu_update_waitstates(void)
         if (cpu_cache_int_enabled) {
             /* Disable prefetch emulation */
             cpu_prefetch_cycles = 0;
-        } else if (cpu_cache_ext_enabled) {
+        } else if (cpu_cache_ext_enabled && !cpu_mem_count_uncached) {
             /* Use cache timings */
             cpu_prefetch_cycles = cpu_s->cache_read_cycles;
             cpu_cycles_read     = cpu_s->cache_read_cycles;
@@ -5674,7 +5678,7 @@ cpu_update_waitstates(void)
             cpu_cycles_write_l  = (cpu_16bitbus ? 2 : 1) * cpu_s->mem_write_cycles;
         }
 
-        if (!cpu_cache_int_enabled && !cpu_cache_ext_enabled && cpu_mem_extra_cycles) {
+        if (!cpu_cache_int_enabled && (!cpu_cache_ext_enabled || cpu_mem_count_uncached) && cpu_mem_extra_cycles) {
             /* The setting is in bus clocks; scale it to CPU clocks so a
                clock-doubled or tripled CPU waits the same real time. */
             int extra = (int) (cpu_mem_extra_cycles * ((cpu_s->multi > 1.0) ? cpu_s->multi : 1.0) + 0.5);
@@ -5689,7 +5693,7 @@ cpu_update_waitstates(void)
         /* A 386-class CPU has no CR0.CD for the recompiler to see, so with
            the extra DRAM wait in force run it interpreted, where the wait
            is charged on every uncached access. */
-        if (!is486 && cpu_mem_extra_cycles && !cpu_cache_int_enabled && !cpu_cache_ext_enabled)
+        if (!is486 && cpu_mem_extra_cycles && !cpu_cache_int_enabled && (!cpu_cache_ext_enabled || cpu_mem_count_uncached))
             cpu_override_dynarec |= CPU_OVERRIDE_DRAM_WAIT;
         else
             cpu_override_dynarec &= ~CPU_OVERRIDE_DRAM_WAIT;

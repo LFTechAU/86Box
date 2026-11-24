@@ -585,7 +585,7 @@ prefetch_run(int instr_cycles, int bytes, int modrm, int reads, int reads_l, int
        is in bus clocks, so a clock-doubled or tripled CPU (Cyrix SRx2, IBM
        SLC2/SLC3) waits the same real time, and a 32-bit access takes two
        bus cycles on a 16-bit bus. */
-    if (!is486 && cpu_mem_extra_cycles && !cpu_cache_int_enabled && !cpu_cache_ext_enabled) {
+    if (!is486 && cpu_mem_extra_cycles && !cpu_cache_int_enabled && (!cpu_cache_ext_enabled || cpu_mem_count_uncached)) {
         int extra = (int) (cpu_mem_extra_cycles * ((cpu_s->multi > 1.0) ? cpu_s->multi : 1.0) + 0.5);
 
         cycles -= extra * (reads + writes + (cpu_16bitbus ? 2 : 1) * (reads_l + writes_l));

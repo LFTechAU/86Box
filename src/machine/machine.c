@@ -35,6 +35,7 @@
 #include <86box/serial.h>
 #include <86box/gameport.h>
 #include "cpu.h"
+#include <86box/io.h>
 #include <86box/video.h>
 #include <86box/machine.h>
 #include <86box/isamem.h>
@@ -243,6 +244,29 @@ machine_has_turbo_switch(void)
     return turbo_switch_present;
 }
 
+/* The POST memory count, for the "Extra DRAM wait" setting. Some LFTech
+   BIOSes (the OPTi 495SX's) turn the external cache on early in POST, so
+   the count would run at cache speed whatever the setting. A real count
+   tests each block of DRAM, so while the AMI BIOS counts (POST codes 4Fh
+   to 51h, base and extended memory) the cache is left out of the timing.
+   This only happens once per power-on: the count ends with code 52h, and
+   after that software that writes port 80h (as a delay) changes nothing. */
+static int machine_memcount_armed;
+
+static void
+machine_memcount_post(UNUSED(uint16_t port), uint8_t val, UNUSED(void *priv))
+{
+    int on = machine_memcount_armed && (val >= 0x4f) && (val <= 0x51);
+
+    if (machine_memcount_armed && (val == 0x52))
+        machine_memcount_armed = 0;
+
+    if (cpu_mem_count_uncached != on) {
+        cpu_mem_count_uncached = on;
+        cpu_update_waitstates();
+    }
+}
+
 void
 machine_init(void)
 {
@@ -252,6 +276,8 @@ machine_init(void)
     machine_speed_pct    = 100;
     machine_soft_deturbo = 0;
     machine_lftech       = 0;
+
+    cpu_mem_count_uncached = 0;
 
     machine_set_p1_default(machines[machine].kbc_p1);
     machine_set_ps2();
@@ -266,6 +292,10 @@ machine_init(void)
     }
 
     (void) machine_init_ex(machine);
+
+    machine_memcount_armed = 1;
+    if (machine_lftech && cpu_mem_extra_cycles)
+        io_sethandler(0x0080, 1, NULL, NULL, NULL, machine_memcount_post, NULL, NULL, NULL);
 }
 
 int
