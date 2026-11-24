@@ -97,7 +97,7 @@ machine_at_cs4031_init(const machine_t *model)
     cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
-    /* Turbo switch and Ctrl+Alt+minus/plus (CS4031 register 09h bit 0). */
+    /* The front panel Turbo switch. */
     if (machine_lftech)
         device_add(&machine_deturbo_device);
 
@@ -416,7 +416,7 @@ machine_at_isa486_init(const machine_t *model)
     cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
-    /* Turbo switch and Ctrl+Alt+minus/plus (85C401 register 67h bit 1). */
+    /* The front panel Turbo switch. */
     if (machine_lftech)
         device_add(&machine_deturbo_device);
 

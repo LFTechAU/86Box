@@ -759,11 +759,11 @@ sis_85c401_cache_sizing_update(sis_85c4xx_t *dev)
 }
 
 /* SiS 85C460 datasheet, Turbo Switch: "When the de-turbo function is turned
-   on, system performs 1/3 or 2/3 speed". Register 57h bit 1 is software
-   de-turbo (the AMI BIOS sets it on Ctrl+Alt+minus and clears it on
-   Ctrl+Alt+plus), register 53h bit 0 set means ignore the front panel turbo
-   switch, and register 58h bit 4 picks a hold of 4 us or 8 us out of every
-   12 us. The hold is the processor's clock control throttle (STPCLK#
+   on, system performs 1/3 or 2/3 speed". Register 53h bit 0 set means
+   ignore the front panel turbo switch, and register 58h bit 4 picks a hold
+   of 4 us or 8 us out of every 12 us. Register 57h bit 1, the software
+   de-turbo that the AMI BIOS sets on Ctrl+Alt+minus, is left alone: Turbo
+   is only switched from the front panel. The hold is the processor's clock control throttle (STPCLK#
    modulated, cpu.h), which the CPU loop counts as time passing, so the
    processor runs 1/3 or 2/3 as fast against the timers and the clock.
    The timer polls so that it also picks up the switch, which the user
@@ -772,8 +772,7 @@ static void
 sis_85c46x_deturbo_timer(void *priv)
 {
     sis_85c4xx_t *dev    = (sis_85c4xx_t *) priv;
-    int           active = (dev->regs[0x07] & 0x02) ||
-                           (!(dev->regs[0x03] & 0x01) && !machine_turbo_switch);
+    int           active = !(dev->regs[0x03] & 0x01) && !machine_turbo_switch;
     int           run    = active ? ((dev->regs[0x08] & 0x10) ? 1 : 2) : 0;
 
     machine_speed_pct = active ? ((run == 1) ? 33 : 67) : 100;
@@ -833,12 +832,8 @@ sis_85c4xx_out(uint16_t port, uint8_t val, void *priv)
                         break;
 
                     case 0x07:
-                        /* 85C401 register 67h bit 1: the AMI BIOS sets it on
-                           Ctrl+Alt+minus (de-turbo), clears it on Ctrl+Alt+plus. */
-                        if (dev->reg_base == 0x60) {
+                        if (dev->reg_base == 0x60)
                             sis_85c401_cache_sizing_update(dev);
-                            machine_soft_deturbo = !!(val & 0x02);
-                        }
                         else if (!dev->is_471 && (valxor & 0x01))
                             sis_85c46x_cache_sizing(dev, val & 0x01);
                         break;

@@ -285,9 +285,6 @@ extern void         kbc_at_set_wire_hook(void *priv,
                                          void *wire_priv);
 extern void         kbc_at_set_wire_takeover(void *priv, uint8_t channels);
 
-extern void         kbc_at_set_ami_line_hook(void *priv,
-                                             void (*hook)(void *priv, uint8_t cmd),
-                                             void *hook_priv);
 extern void         kbc_at_set_ami_p22_p23_hook(void *priv,
                                                 void (*hook)(void *priv, int set),
                                                 void *hook_priv);

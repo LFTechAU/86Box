@@ -334,18 +334,6 @@ const device_t ecs386v_device = {
     .config        = ecs386v_config
 };
 
-/* Ctrl+Alt+minus/plus: the AMI BIOS switches the board's de-turbo line,
-   P13, with keyboard controller command B3h (de-turbo) and
-   BBh (turbo). */
-static void
-ecs386v_deturbo(UNUSED(void *priv), uint8_t cmd)
-{
-    if (cmd == 0xb3)
-        machine_soft_deturbo = 1;
-    else if (cmd == 0xbb)
-        machine_soft_deturbo = 0;
-}
-
 int
 machine_at_ecs386v_init(const machine_t *model)
 {
@@ -372,8 +360,7 @@ machine_at_ecs386v_init(const machine_t *model)
     cpu_mem_extra_cycles = machine_lftech ? MIN(machine_get_config_int("dram_extra"), MACHINE_DRAM_EXTRA_386_MAX) : 0;
     cpu_update_waitstates();
 
-    kbc_at_set_ami_line_hook(device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params),
-                             ecs386v_deturbo, NULL);
+    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
     if (machine_lftech)
         device_add(&machine_deturbo_device);
 
@@ -529,16 +516,12 @@ const device_t opti291wb_device = {
    the BIOS sets the lines with AMI KBC command A3h late in POST (after the
    memory count) for a High boot-up speed and on Ctrl+Alt+plus, and clears
    them with A2h for Low and on Ctrl+Alt+minus. The 82C391's own cache
-   enable bit (register 21h bit 4) is never set by this BIOS. On the LFTech
-   BIOS the line also drives the generic de-turbo, so that Turbo off slows
-   the CPU as the SOYO's does. */
+   enable bit (register 21h bit 4) is never set by this BIOS. */
 static void
 opti291wb_cache_hook(UNUSED(void *priv), int set)
 {
     cpu_cache_ext_enabled = set;
     cpu_update_waitstates();
-    if (machine_lftech)
-        machine_soft_deturbo = !set;
 }
 
 int
@@ -585,7 +568,7 @@ machine_at_opti291wb_init(const machine_t *model)
        fail. */
     device_add(&port_92_device);
 
-    /* Turbo switch and Ctrl+Alt+minus/plus (the P22/P23 line above). */
+    /* The front panel Turbo switch. */
     if (machine_lftech)
         device_add(&machine_deturbo_device);
 

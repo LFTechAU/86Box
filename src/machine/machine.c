@@ -165,21 +165,17 @@ machine_get_cpu_mhz(void)
     return (c != NULL) ? (int) (c->rspeed / 1000000) : 0;
 }
 
-/* Software de-turbo (Ctrl+Alt+minus) for boards using the generic de-turbo
-   below, set from what the BIOS writes (a chipset register or a keyboard
-   controller line). */
-volatile int machine_soft_deturbo = 0;
-
 /* As the SiS 85C460/461 de-turbo (sis_85c4xx.c): the processor clock
    control throttle holds the CPU two parts of every three, so it runs at
    1/3 speed against the timers and the clock, while the front panel Turbo
-   switch is off or the BIOS has turned de-turbo on. The timer polls, which
+   switch is off. The BIOS's Ctrl+Alt+minus/plus is left alone: Turbo is
+   only switched from the front panel. The timer polls, which
    also picks up the switch from the user interface thread. */
 static void
 machine_deturbo_timer(void *priv)
 {
     pc_timer_t *timer  = (pc_timer_t *) priv;
-    int         active = machine_soft_deturbo || !machine_turbo_switch;
+    int         active = !machine_turbo_switch;
     int         run    = active ? 1 : 0;
 
     machine_speed_pct = active ? 33 : 100;
@@ -198,7 +194,6 @@ machine_deturbo_init(UNUSED(const device_t *info))
 {
     pc_timer_t *timer = (pc_timer_t *) calloc(1, sizeof(pc_timer_t));
 
-    machine_soft_deturbo = 0;
     machine_set_turbo_switch_present(1);
 
     timer_add(timer, machine_deturbo_timer, timer, 0);
@@ -274,7 +269,6 @@ machine_init(void)
     cpu_mem_extra_cycles = 0;
     turbo_switch_present = 0;
     machine_speed_pct    = 100;
-    machine_soft_deturbo = 0;
     machine_lftech       = 0;
 
     cpu_mem_count_uncached = 0;

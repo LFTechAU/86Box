@@ -194,9 +194,7 @@ machine_at_ali1429_init(const machine_t *model)
        the LFTech BIOS; the stock BIOS runs the board as 86Box has it. */
     machine_lftech = machine_get_config_int("bios_lftech") != 0;
 
-    /* Register 23h bit 1 is this BIOS's de-turbo (bit 17). */
-    device_add_params(&ali1429_device,
-                      (void *) ((uintptr_t) machine_ali1429_cache_params(machine_get_config_int("cache_size")) | 0x20000));
+    device_add_params(&ali1429_device, machine_ali1429_cache_params(machine_get_config_int("cache_size")));
     if (machine_lftech)
         device_add(&machine_deturbo_device);
 

@@ -92,7 +92,6 @@
 #include <86box/port_92.h>
 #include <86box/smram.h>
 #include <86box/chipset.h>
-#include <86box/machine.h>
 
 #define GREEN dev->is_g /* Is G Variant */
 
@@ -122,7 +121,6 @@ typedef struct ali_1429_t {
     uint8_t regs[90];
     uint8_t cache_bits; /* register 18h bits 6:4, the cache size */
     uint8_t no_cache;
-    uint8_t deturbo_23h; /* the board's BIOS de-turbos with register 23h bit 1 */
 } ali1429_t;
 
 static void
@@ -256,8 +254,6 @@ ali1429_write(uint16_t addr, uint8_t val, void *priv)
 
                     case 0x21 ... 0x27:
                         dev->regs[dev->index] = val;
-                        if ((dev->index == 0x23) && dev->deturbo_23h)
-                            machine_soft_deturbo = !(val & 0x02);
                         break;
                     default:
                         break;
@@ -350,9 +346,6 @@ ali1429_init(const device_t *info)
        set: no cache. Otherwise 256 KB. */
     dev->cache_bits = (info->local & 0x8000) ? ((info->local >> 8) & 0x70) : 0x20;
     dev->no_cache   = !!(info->local & 0x10000);
-    /* Bit 17: Ctrl+Alt+minus clears register 23h bit 1 (de-turbo) and
-       Ctrl+Alt+plus sets it, as on the Olystar LIL1429. */
-    dev->deturbo_23h = !!(info->local & 0x20000);
 
     /* M1429 Ports:
                 22h	Index Port

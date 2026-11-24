@@ -162,22 +162,9 @@ const device_t opti495_ami_device = {
     .config        = opti495_ami_config
 };
 
-/* Ctrl+Alt+minus/plus: the AMI BIOS switches the board's de-turbo line,
-   P22, with keyboard controller command BCh (de-turbo) and
-   B4h (turbo). */
-static void
-opti495_ami_deturbo(UNUSED(void *priv), uint8_t cmd)
-{
-    if (cmd == 0xbc)
-        machine_soft_deturbo = 1;
-    else if (cmd == 0xb4)
-        machine_soft_deturbo = 0;
-}
-
 int
 machine_at_opti495_ami_init(const machine_t *model)
 {
-    void       *kbc;
     int         ret = 0;
     const char *fn;
 
@@ -203,8 +190,7 @@ machine_at_opti495_ami_init(const machine_t *model)
     cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
     cpu_update_waitstates();
 
-    kbc = device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
-    kbc_at_set_ami_line_hook(kbc, opti495_ami_deturbo, NULL);
+    device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
     if (machine_lftech)
         device_add(&machine_deturbo_device);
 
