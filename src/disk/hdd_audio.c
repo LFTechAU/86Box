@@ -702,8 +702,11 @@ hdd_audio_reset(void)
             hdd_audio_spinup_drive(state->hdd_index);
         hdd_audio_mech_power_on(state, stop_us);
 
-        if (hdd_audio_mech_eligible(state)) {
-            double hold_us = stop_us + (double) audio_profiles[state->profile_id].poweron_hold_ms * 1000.0;
+        /* A drive still spinning down does not hold the POST up: the BIOS
+           starts at once and waits at the drive check while it stops,
+           spins up again and calibrates. */
+        if (hdd_audio_mech_eligible(state) && (stop_us <= 0.0)) {
+            double hold_us = (double) audio_profiles[state->profile_id].poweron_hold_ms * 1000.0;
             if (hold_us > hdd_audio_hold_us)
                 hdd_audio_hold_us = hold_us;
         }
