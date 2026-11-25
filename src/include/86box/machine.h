@@ -995,6 +995,7 @@ extern const device_t  ali1429_mach_device;
 extern const device_t  ecs386v_device;
 extern const device_t  greenb_device;
 extern const device_t  pat45pv_device;
+extern const device_t  excalibur_device;
 extern const device_t  cs4031_mach_device;
 #endif
 extern int             machine_at_vli486sv2g_init(const machine_t *);

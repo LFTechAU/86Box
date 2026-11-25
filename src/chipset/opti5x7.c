@@ -36,7 +36,8 @@
 typedef struct opti5x7_t {
     uint8_t idx;
     uint8_t  is_pci;
-    uint16_t cache_strap; /* 100h | cache size bits 7:5 of register 02h, or 0 */
+    uint16_t cache_strap; /* 100h | cache size bits of register 02h, or 0;
+                             200h: the 82C597's bits 7:6, else bits 7:5 */
     uint8_t regs[18];
 } opti5x7_t;
 
@@ -115,11 +116,13 @@ opti5x7_write(uint16_t addr, uint8_t val, void *priv)
                     dev->regs[dev->idx] = val;
                     break;
                 case 0x02: /* Cache Control Register #1 */
-                    /* Bits 7:5, the cache size (64 KB << n), as the board
-                       has it, where the machine gives one (the BIOS only
-                       ever keeps these bits). */
-                    if (dev->cache_strap & 0x100)
-                        val = (val & 0x1f) | (dev->cache_strap & 0xe0);
+                    /* The cache size (64 KB << n: bits 7:5, or 7:6 on the
+                       82C597), as the board has it, where the machine gives
+                       one (the BIOS only ever keeps these bits). */
+                    if (dev->cache_strap & 0x100) {
+                        uint8_t m = (dev->cache_strap & 0x200) ? 0xc0 : 0xe0;
+                        val = (val & ~m) | (dev->cache_strap & m);
+                    }
                     dev->regs[dev->idx]   = val;
                     cpu_cache_ext_enabled = !!(dev->regs[0x02] & 0x0c);
                     cpu_update_waitstates();
@@ -182,9 +185,9 @@ opti5x7_init(const device_t *info)
     opti5x7_t *dev = (opti5x7_t *) calloc(1, sizeof(opti5x7_t));
 
     dev->is_pci      = info->local & 1;
-    dev->cache_strap = info->local & 0x1e0;
+    dev->cache_strap = info->local & 0x3e0;
     if (dev->cache_strap & 0x100)
-        dev->regs[0x02] = dev->cache_strap & 0xe0;
+        dev->regs[0x02] = dev->cache_strap & ((dev->cache_strap & 0x200) ? 0xc0 : 0xe0);
 
     io_sethandler(0x0022, 0x0001, opti5x7_read, NULL, NULL, opti5x7_write, NULL, NULL, dev);
     io_sethandler(0x0024, 0x0001, opti5x7_read, NULL, NULL, opti5x7_write, NULL, NULL, dev);

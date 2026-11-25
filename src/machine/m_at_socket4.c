@@ -18,6 +18,7 @@
 #include <string.h>
 #include <wchar.h>
 #include <86box/86box.h>
+#include "cpu.h"
 #include <86box/mem.h>
 #include <86box/io.h>
 #include <86box/rom.h>
@@ -652,12 +653,46 @@ machine_at_pci58pl_init(const machine_t *model)
 }
 
 /* OPTi 597 */
+static const device_config_t excalibur_config[] = {
+    // clang-format off
+    MACHINE_LFTECH_BIOS_CONFIG("AMI 08/08/93 by LFTech"),
+    {
+        .name        = "cache_size",
+        .description = "External cache",
+        .type        = CONFIG_SELECTION,
+        .default_int = 256,
+        .selection   = { { .description = "64 KB", .value = 64 },
+                         { .description = "128 KB", .value = 128 },
+                         { .description = "256 KB", .value = 256 },
+                         { .description = "512 KB", .value = 512 },
+                         { .description = "" } }
+    },
+    { .name = "", .description = "", .type = CONFIG_END }
+    // clang-format on
+};
+
+const device_t excalibur_device = {
+    .name          = "AMI Excalibur VLB",
+    .internal_name = "excalibur",
+    .flags         = 0,
+    .local         = 0,
+    .init          = NULL,
+    .close         = NULL,
+    .reset         = NULL,
+    .available     = NULL,
+    .speed_changed = NULL,
+    .force_redraw  = NULL,
+    .config        = excalibur_config
+};
+
 int
 machine_at_excalibur_init(const machine_t *model)
 {
     int ret;
 
-    ret = bios_load_linear_inverted("roms/machines/excalibur/S75P.ROM",
+    ret = bios_load_linear_inverted(machine_get_config_int("bios_lftech") ?
+                                        "roms/machines/excalibur/S75P-lftech.ROM" :
+                                        "roms/machines/excalibur/S75P.ROM",
                                     0x000e0000, 131072, 0);
 
     if (bios_only || !ret)
@@ -665,10 +700,33 @@ machine_at_excalibur_init(const machine_t *model)
 
     machine_at_common_init(model);
 
-    device_add(&opti5x7_device);
+    /* The LFTech extras (Turbo, the front panel, DRAM timing, the cache
+       size) are only on the LFTech BIOS; the stock BIOS runs the board as
+       86Box has it. */
+    machine_lftech = machine_get_config_int("bios_lftech") != 0;
+
+    /* The cache size the BIOS reads from the chipset (the 82C597's
+       register 02h bits 7:6, 64 KB << n), as on the TMC PAT45PV. */
+    if (machine_lftech) {
+        int kb = machine_get_config_int("cache_size");
+        int n  = (kb >= 512) ? 3 : (kb >= 256) ? 2 : (kb >= 128) ? 1 : 0;
+
+        device_add_params(&opti5x7_device, (void *) (uintptr_t) (0x300 | (n << 6)));
+    } else
+        device_add(&opti5x7_device);
+
+    /* Extra DRAM Wait in the LFTech BIOS's LFTech Features Setup (the
+       board's 33 MHz value, the most it offers, the two CMOS bytes). */
+    cpu_mem_extra_cycles = 0;
+    if (machine_lftech)
+        lftech_setup_add(5, 64, 0x70, 0x71);
+    cpu_update_waitstates();
+
     device_add(machine_get_ide_device(machine));
     device_add_params(&fdc37c6xx_device, (void *) FDC37C661);
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+    if (machine_lftech)
+        device_add(&machine_deturbo_device);
 
     return ret;
 }
