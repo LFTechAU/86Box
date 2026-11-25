@@ -824,7 +824,10 @@ hdd_audio_mech_power_on(hdd_audio_drive_state_t *state, double extra_us)
 
     state->mech_phase = HDD_MECH_SPINUP;
     state->mech_busy  = 1;
-    timer_set_delay_u64(&state->mech_timer, (uint64_t) ((extra_us + spinup_us) * TIMER_USEC));
+    /* A spin-down and spin-up can run past what a single timer delay
+       holds at a fast CPU clock (about 16 s at 133 MHz), which would set
+       it off at once: let the timer code split it. */
+    timer_on_auto(&state->mech_timer, extra_us + spinup_us);
 }
 
 /* The Reset button: the drive stays spinning and recalibrates. */
