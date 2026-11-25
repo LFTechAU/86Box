@@ -7,7 +7,7 @@
 ; settings to two CMOS bytes (the emulator reads them back):
 ;   byte A: 10xx dddd  - bit 3 logo off, bit 2 spin-up wait off,
 ;                        bits 1:0 de-turbo speed (1/3, 1/2, 2/3, 8 MHz)
-;   byte B: 101i iiii  - extra DRAM wait, index into dram_tab
+;   byte B: 101i iiii  - extra DRAM wait, index into dram_tab, 1Fh = Auto
 ;
 ; Assemble with: nasm -f bin lftech_setup.asm -o lftech_setup.bin
 ; then regenerate lftech_setup_rom.h (see the end of this file).
@@ -23,7 +23,7 @@ entry_far:                          ; 0003: far-called by the BIOS stub
 cmos_a:     db 0x70                 ; 000A  CMOS index of byte A
 cmos_b:     db 0x71                 ; 000B  CMOS index of byte B
 dram_max:   db 17                   ; 000C  highest DRAM wait index offered
-dram_def:   db 5                    ; 000D  default DRAM wait index
+auto_clk:   db 5                    ; 000D  clocks Auto picks for this CPU
             db 0, 0                 ; 000E
 
 ; ---------------------------------------------------------------- data
@@ -50,7 +50,8 @@ o_det:  opt '1/3 Speed'
         opt '8 MHz (AT)'
 o_en:   opt 'Enabled'
         opt 'Disabled'
-o_dram: opt 'None'
+o_dram: opt 'Auto'
+        opt 'None'
         opt '+1 Clocks'
         opt '+2 Clocks'
         opt '+3 Clocks'
@@ -78,7 +79,8 @@ h_det:  db 'How fast the computer runs while', 10
 h_dram: db 'Wait states added to each memory', 10
         db 'access while the caches are off.', 10
         db 'Sets how fast the memory count', 10
-        db 'runs at power-on.', 0
+        db 'runs at power-on. Auto picks it', 10
+        db 'from the CPU bus speed.', 0
 h_spin: db 'Waits for the hard disks to spin', 10
         db 'up before the power-on test, as on', 10
         db 'a cold start.', 0
@@ -132,6 +134,8 @@ main:
     int 0x10
 
     call sample_colours
+    call fill_year
+    call fill_auto
     call load_cmos
     mov si, vals
     mov di, old
@@ -230,14 +234,13 @@ cur_item:
     cmp bl, 1
     jne .r
     mov al, [dram_max]
-    inc al
+    add al, 2                       ; Auto, then None..dram_max
 .r:
     ret
 
 set_defaults:
     mov byte [vals + 0], 0
-    mov al, [dram_def]
-    mov [vals + 1], al
+    mov byte [vals + 1], 0          ; Auto
     mov byte [vals + 2], 0
     mov byte [vals + 3], 0
     ret
@@ -275,10 +278,17 @@ load_cmos:
     jne .r
     mov al, dh
     and al, 0x1f
+    cmp al, 0x1f                    ; Auto
+    je .auto
     cmp al, [dram_max]
     jbe .dok
     mov al, [dram_max]
 .dok:
+    inc al
+    jmp .dset
+.auto:
+    xor al, al
+.dset:
     mov [vals + 1], al
     mov al, dl
     and al, 3
@@ -304,6 +314,8 @@ save_cmos:
     mov al, [cmos_a]
     call cmos_wr
     mov ah, [vals + 1]
+    dec ah                          ; option 0 (Auto) -> 1Fh
+    and ah, 0x1f
     or ah, 0xa0
     mov al, [cmos_b]
     call cmos_wr
@@ -569,9 +581,9 @@ draw_items:
     push cx
     mov dh, ch                      ; nine to a column
     mov dl, 43
-    cmp dh, 9
+    cmp dh, 10
     jb .col
-    sub dh, 9
+    sub dh, 10
     mov dl, 60
 .col:
     add dh, 6
@@ -603,6 +615,50 @@ draw_items:
     inc dh
     cmp byte [si - 1], 0
     jne .hl
+    ret
+
+; the year from the real-time clock into the copyright line
+fill_year:
+    mov ah, 4
+    int 0x1a
+    jc .r
+    mov di, s_title2 + 3
+    mov al, ch
+    call bcd2
+    mov al, cl
+    call bcd2
+.r: ret
+bcd2:                               ; AL = BCD byte -> two digits at [DI]
+    mov ah, al
+    shr al, 4
+    add al, '0'
+    mov [di], al
+    mov al, ah
+    and al, 0x0f
+    add al, '0'
+    mov [di + 1], al
+    add di, 2
+    ret
+
+; 'Auto (+n)' from the clocks the board picked
+fill_auto:
+    mov di, o_dram + 4
+    mov al, [auto_clk]
+    mov word [di], ' (' 
+    mov byte [di + 2], '+'
+    add di, 3
+    xor ah, ah
+    mov bl, 10
+    div bl
+    or al, al
+    jz .one
+    add al, '0'
+    mov [di], al
+    inc di
+.one:
+    add ah, '0'
+    mov [di], ah
+    mov word [di + 1], ')'
     ret
 
 ; SI = string of the value of item BX

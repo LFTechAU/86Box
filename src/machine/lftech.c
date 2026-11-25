@@ -16,7 +16,8 @@
  *
  *            byte A: 10xx dddd  bit 3 logo off, bit 2 spin-up wait off,
  *                               bits 1:0 de-turbo speed
- *            byte B: 101i iiii  extra DRAM wait, index into dram_tab
+ *            byte B: 101i iiii  extra DRAM wait, index into dram_tab,
+ *                               1Fh = Auto (from the CPU bus speed)
  *
  *          A read of port EEh tells the BIOS's logo code whether to draw
  *          the logo (1Ah, as INT 10h AX=1A00h answers on VGA) or not.
@@ -48,7 +49,8 @@
 #define LFTECH_SETUP_AT 0x00080000
 
 static const int dram_tab[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 32, 48, 64 };
-#define DRAM_N ((int) (sizeof(dram_tab) / sizeof(dram_tab[0])))
+#define DRAM_N    ((int) (sizeof(dram_tab) / sizeof(dram_tab[0])))
+#define DRAM_AUTO 0x1f
 
 int lftech_deturbo_speed = 0; /* 0 = 1/3, 1 = 1/2, 2 = 2/3, 3 = 8 MHz */
 int lftech_spinup_wait   = 1;
@@ -59,9 +61,24 @@ static struct {
     uint8_t    cmos_b;
     int        dram_max;
     int        dram_def;
+    int        dram_33;
     int        dram;
     pc_timer_t timer;
 } lft;
+
+/* DRAM chips take the same time whatever the bus speed, so the wait in bus
+   clocks grows with the bus: the board's own 33 MHz value (which matches a
+   real DX-33's memory count), scaled to this CPU's bus. */
+static int
+dram_auto(void)
+{
+    double mhz    = cpu_busspeed / 1000000.0;
+    int    clocks = (int) (lft.dram_33 * mhz / 33.333 + 0.5);
+
+    if (clocks > dram_tab[lft.dram_max])
+        clocks = dram_tab[lft.dram_max];
+    return clocks;
+}
 
 static int
 dram_index(int clocks)
@@ -83,8 +100,9 @@ lftech_read_cmos(int fix)
     uint8_t a = nvr_peek(lft.cmos_a);
     uint8_t b = nvr_peek(lft.cmos_b);
     int     dram;
+    int     clocks;
 
-    if (((a & 0xf0) != 0x80) || ((b & 0xe0) != 0xa0) || ((b & 0x1f) >= DRAM_N)) {
+    if (((a & 0xf0) != 0x80) || ((b & 0xe0) != 0xa0) || (((b & 0x1f) >= DRAM_N) && ((b & 0x1f) != DRAM_AUTO))) {
         if (!fix)
             return;
         a = 0x80;
@@ -98,11 +116,13 @@ lftech_read_cmos(int fix)
     lftech_logo          = !(a & 0x08);
 
     dram = b & 0x1f;
-    if (dram > lft.dram_max)
-        dram = lft.dram_max;
-    if (dram != lft.dram) {
-        lft.dram             = dram;
-        cpu_mem_extra_cycles = dram_tab[dram];
+    if (dram == DRAM_AUTO)
+        clocks = dram_auto();
+    else
+        clocks = dram_tab[(dram > lft.dram_max) ? lft.dram_max : dram];
+    if (clocks != lft.dram) {
+        lft.dram             = clocks;
+        cpu_mem_extra_cycles = clocks;
         cpu_update_waitstates();
     }
 }
@@ -135,7 +155,7 @@ lftech_write(UNUSED(uint16_t port), uint8_t val, UNUSED(void *priv))
                 b = (uint8_t) lft.dram_max;
                 break;
             case 0x0d:
-                b = (uint8_t) lft.dram_def;
+                b = (uint8_t) dram_auto();
                 break;
             default:
                 break;
@@ -187,23 +207,29 @@ static const device_t lftech_setup_device = {
 };
 
 /* Called by an LFTech board with its LFTech BIOS: dram_def is the board's
-   default extra DRAM wait in clocks (the machine setting it had before the
-   setup page, if any, is taken over), dram_max the most it offers, and
-   cmos_a/cmos_b the two CMOS bytes its BIOS leaves free. */
+   extra DRAM wait in clocks for a 33 MHz bus (Auto scales it to the CPU's
+   bus; a machine setting from before the setup page is taken over instead),
+   dram_max the most it offers, and cmos_a/cmos_b the two CMOS bytes its
+   BIOS leaves free. */
 void
 lftech_setup_add(int dram_def, int dram_max, uint8_t cmos_a, uint8_t cmos_b)
 {
     const device_t *dev = machine_get_device(machine);
+    int             old = -1;
 
     if ((dev != NULL) && (dev->name != NULL))
-        dram_def = config_get_int((char *) dev->name, "dram_extra", dram_def);
+        old = config_get_int((char *) dev->name, "dram_extra", -1);
 
     lft.cmos_a   = cmos_a;
     lft.cmos_b   = cmos_b;
+    lft.dram_33  = dram_def;
     lft.dram_max = dram_index(dram_max);
-    lft.dram_def = dram_index(dram_def);
-    if (lft.dram_def > lft.dram_max)
-        lft.dram_def = lft.dram_max;
+    if (old >= 0) {
+        lft.dram_def = dram_index(old);
+        if (lft.dram_def > lft.dram_max)
+            lft.dram_def = lft.dram_max;
+    } else
+        lft.dram_def = DRAM_AUTO;
 
     device_add(&lftech_setup_device);
 }
