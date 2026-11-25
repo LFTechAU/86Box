@@ -3,8 +3,9 @@
 ; The BIOS's menu item calls a small stub that writes 'L' to port EEh; the
 ; emulator then copies this image to 8000:0000, fills in the header below
 ; for the board, and the stub far-calls 8000:0003. The page draws itself in
-; the colours of the setup screen it was called from, and on Esc writes its
-; settings to two CMOS bytes (the emulator reads them back):
+; the colours of the setup screen it was called from. On Esc, if anything
+; changed, it asks, writes its settings to two CMOS bytes (the emulator
+; reads them back) and restarts the machine so the POST shows them:
 ;   byte A: 10xx dddd  - bit 3 logo off, bit 2 spin-up wait off,
 ;                        bits 1:0 de-turbo speed (1/3, 1/2, 2/3, 8 MHz)
 ;   byte B: 101i iiii  - extra DRAM wait, index into dram_tab, 1Fh = Auto
@@ -91,6 +92,7 @@ h_logo: db 'Shows the LFTech logo in the top', 10
 s_title1: db 'BIOS SETUP PROGRAM - LFTECH FEATURES SETUP', 0
 s_title2: db '(C)1994 LFTech, All Rights Reserved', 0
 s_avail:  db ' Available Options ', 0
+s_ask:    db 'Save Changes and Restart (Y/N) ? ', 0
 s_keys1:  db ' ESC:Exit  ', 0x18, 0x19, ':Sel  PgUp/PgDn:Modify  +/-:Modify ', 0
 s_keys2:  db ' F5:Old Values  F6:LFTech Setup Defaults ', 0
 
@@ -207,7 +209,23 @@ main:
     jmp .loop
 
 .exit:
+    ; nothing changed: straight back to the menu
+    mov si, vals
+    mov di, old
+    push ds
+    pop es
+    mov cx, NITEMS
+    repe cmpsb
+    je .leave
+    ; changed: ask, then save and restart so the POST shows the new settings
+    call ask_restart
+    jc .redraw
     call save_cmos
+    call restart
+.redraw:
+    call draw_frame
+    jmp .loop
+.leave:
     ; put the screen and cursor back
     mov ax, 0xb800
     mov es, ax
@@ -226,6 +244,58 @@ main:
     pop ds
     popad
     retf
+
+;  confirm box; CF set = no
+ask_restart:
+    mov ah, [hiA]
+    mov dh, 11
+.box:
+    mov dl, 20
+    mov al, ' '
+    mov cx, 40
+    push dx
+    call fill
+    pop dx
+    inc dh
+    cmp dh, 14
+    jb .box
+    mov dh, 12
+    mov si, s_ask
+    call putc_c
+.key:
+    xor ah, ah
+    int 0x16
+    or al, 0x20                     ; lower case
+    cmp al, 'y'
+    je .y
+    cmp ah, 0x01                    ; Esc
+    je .n
+    cmp al, 'n'
+    jne .key
+.n: stc
+    ret
+.y: clc
+    ret
+
+; full restart: the BIOS's memory count and all
+restart:
+    xor ax, ax
+    mov es, ax
+    mov word [es:0x472], 0          ; not a warm boot
+    mov al, 0x8f                    ; shutdown status: normal reset
+    out 0x70, al
+    jmp $+2
+    xor al, al
+    out 0x71, al
+    cli
+.kbc:
+    in al, 0x64
+    test al, 2
+    jnz .kbc
+    mov al, 0xfe                    ; pulse the CPU reset line
+    out 0x64, al
+    hlt
+    jmp .kbc
 
 ; BX = selected item, AL = its option count
 cur_item:
