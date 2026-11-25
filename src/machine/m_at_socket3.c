@@ -174,7 +174,6 @@ static const device_config_t greenb_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 01/10/94 by LFTech"),
     MACHINE_CACHE_KB_CONFIG(256),
-    MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -220,8 +219,12 @@ machine_at_greenb_init(const machine_t *model)
                       (void *) (uintptr_t) (0x101 | ((uint32_t) machine_get_config_int("cache_size") << 16)));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
-       pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
+       pace of a real board's slower DRAM timing: Extra DRAM Wait in the
+       LFTech BIOS's LFTech Features Setup (the board's default, the most
+       it offers, and the two CMOS bytes the setup page keeps). */
+    cpu_mem_extra_cycles = 0;
+    if (machine_lftech)
+        lftech_setup_add(5, 64, 0x70, 0x71);
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
@@ -531,33 +534,6 @@ static const device_config_t vli486sv2g_config[] = {
             { .description = "" }
         }
     },
-    {
-        .name        = "dram_extra",
-        .description = "Extra DRAM wait with cache off",
-        .type        = CONFIG_SELECTION,
-        .default_int = 5,
-        .selection   = {
-            { .description = "None, chipset timing", .value = 0 },
-            { .description = "+1 clocks", .value = 1 },
-            { .description = "+2 clocks", .value = 2 },
-            { .description = "+3 clocks", .value = 3 },
-            { .description = "+4 clocks", .value = 4 },
-            { .description = "+5 clocks, recommended", .value = 5 },
-            { .description = "+6 clocks", .value = 6 },
-            { .description = "+7 clocks", .value = 7 },
-            { .description = "+8 clocks", .value = 8 },
-            { .description = "+10 clocks", .value = 10 },
-            { .description = "+12 clocks", .value = 12 },
-            { .description = "+14 clocks", .value = 14 },
-            { .description = "+16 clocks", .value = 16 },
-            { .description = "+20 clocks", .value = 20 },
-            { .description = "+24 clocks", .value = 24 },
-            { .description = "+32 clocks", .value = 32 },
-            { .description = "+48 clocks", .value = 48 },
-            { .description = "+64 clocks", .value = 64 },
-            { .description = "" }
-        }
-    },
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -630,8 +606,12 @@ machine_at_vli486sv2g_init(const machine_t *model)
                                 ((uintptr_t) machine_get_config_int("cache_size") << 16)));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
-       pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
+       pace of a real board's slower DRAM timing: Extra DRAM Wait in the
+       LFTech BIOS's LFTech Features Setup (the board's default, the most
+       it offers, and the two CMOS bytes the setup page keeps). */
+    cpu_mem_extra_cycles = 0;
+    if (machine_lftech)
+        lftech_setup_add(5, 64, 0x7c, 0x7f);
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);

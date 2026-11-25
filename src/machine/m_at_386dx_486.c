@@ -143,7 +143,6 @@ static const device_config_t opti495_ami_config[] = {
         },
     },
     MACHINE_CACHE_KB_CONFIG(64),
-    MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -186,8 +185,12 @@ machine_at_opti495_ami_init(const machine_t *model)
                       (void *) (uintptr_t) (opti495sx_device.local | 0x100 | ((uint32_t) machine_get_config_int("cache_size") << 16)));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
-       pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
+       pace of a real board's slower DRAM timing: Extra DRAM Wait in the
+       LFTech BIOS's LFTech Features Setup (the board's default, the most
+       it offers, and the two CMOS bytes the setup page keeps). */
+    cpu_mem_extra_cycles = 0;
+    if (machine_lftech)
+        lftech_setup_add(5, 64, 0x70, 0x71);
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);

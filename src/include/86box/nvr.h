@@ -164,6 +164,8 @@ extern void  nvr_init(nvr_t *);
 extern int   nvr_load(void);
 extern int   nvr_load_default(nvr_t *nvr, const char *fn);
 extern void  nvr_close(void);
+extern uint8_t nvr_peek(uint8_t reg);
+extern void    nvr_poke(uint8_t reg, uint8_t val);
 extern void  nvr_set_ven_save(void (*ven_save)(void));
 extern int   nvr_save(void);
 

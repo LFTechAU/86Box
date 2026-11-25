@@ -440,6 +440,12 @@ extern void            machine_init(void);
 /* Front panel turbo switch, for machines whose chipset reads one. */
 extern volatile int    machine_turbo_switch;
 extern int             machine_lftech;
+/* LFTech Features Setup (lftech.c): the LFTech BIOSes' setup page settings. */
+extern int             lftech_deturbo_speed;
+extern int             lftech_spinup_wait;
+extern int             lftech_logo;
+extern void            lftech_setup_add(int dram_def, int dram_max, uint8_t cmos_a, uint8_t cmos_b);
+extern int             lftech_deturbo_throttle(int *period, int *run);
 extern void            machine_set_turbo_switch_present(int present);
 extern int             machine_has_turbo_switch(void);
 /* Speed the chipset lets the CPU run at, in percent (de-turbo lowers it),
@@ -982,52 +988,6 @@ extern const device_t  vli486sv2g_device;
                          { .description = "512 KB", .value = 512 },                   \
                          { .description = "" } }                                      \
     }
-#define MACHINE_DRAM_EXTRA_CONFIG(def)                                                \
-    {                                                                                 \
-        .name        = "dram_extra",                                                  \
-        .description = "Extra DRAM wait with cache off",                              \
-        .type        = CONFIG_SELECTION,                                              \
-        .default_int = def,                                                           \
-        .selection   = { { .description = "None, chipset timing", .value = 0 },       \
-                         { .description = "+1 clocks", .value = 1 },                  \
-                         { .description = "+2 clocks", .value = 2 },                  \
-                         { .description = "+3 clocks", .value = 3 },                  \
-                         { .description = "+4 clocks", .value = 4 },                  \
-                         { .description = "+5 clocks", .value = 5 },                  \
-                         { .description = "+6 clocks", .value = 6 },                  \
-                         { .description = "+7 clocks", .value = 7 },                  \
-                         { .description = "+8 clocks", .value = 8 },                  \
-                         { .description = "+10 clocks", .value = 10 },                \
-                         { .description = "+12 clocks", .value = 12 },                \
-                         { .description = "+14 clocks", .value = 14 },                \
-                         { .description = "+16 clocks", .value = 16 },                \
-                         { .description = "+20 clocks", .value = 20 },                \
-                         { .description = "+24 clocks", .value = 24 },                \
-                         { .description = "+32 clocks", .value = 32 },                \
-                         { .description = "+48 clocks", .value = 48 },                \
-                         { .description = "+64 clocks", .value = 64 },                \
-                         { .description = "" } }                                      \
-    }
-/* The 386 boards stop at +8: with more, the AMI BIOS halts at an early
-   timing test (POST code 13h) before the screen comes on. */
-#define MACHINE_DRAM_EXTRA_386_CONFIG(def)                                            \
-    {                                                                                 \
-        .name        = "dram_extra",                                                  \
-        .description = "Extra DRAM wait with cache off",                              \
-        .type        = CONFIG_SELECTION,                                              \
-        .default_int = def,                                                           \
-        .selection   = { { .description = "None, chipset timing", .value = 0 },       \
-                         { .description = "+1 clocks", .value = 1 },                  \
-                         { .description = "+2 clocks", .value = 2 },                  \
-                         { .description = "+3 clocks", .value = 3 },                  \
-                         { .description = "+4 clocks", .value = 4 },                  \
-                         { .description = "+5 clocks", .value = 5 },                  \
-                         { .description = "+6 clocks", .value = 6 },                  \
-                         { .description = "+7 clocks", .value = 7 },                  \
-                         { .description = "+8 clocks", .value = 8 },                  \
-                         { .description = "" } }                                      \
-    }
-#define MACHINE_DRAM_EXTRA_386_MAX 8
 extern const device_t  av4_device;
 extern const device_t  isa486_device;
 extern const device_t  machine_deturbo_device;

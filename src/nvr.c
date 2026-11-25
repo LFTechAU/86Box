@@ -191,6 +191,23 @@ nvr_init(nvr_t *nvr)
     (void) nvr_load();
 }
 
+/* Read or write a byte of the machine's NVR directly, for the board's
+   own code (the LFTech setup settings). */
+uint8_t
+nvr_peek(uint8_t reg)
+{
+    return ((saved_nvr != NULL) && (reg < saved_nvr->size)) ? saved_nvr->regs[reg] : 0xff;
+}
+
+void
+nvr_poke(uint8_t reg, uint8_t val)
+{
+    if ((saved_nvr != NULL) && (reg < saved_nvr->size) && (saved_nvr->regs[reg] != val)) {
+        saved_nvr->regs[reg] = val;
+        nvr_dosave           = 1;
+    }
+}
+
 /* Get path to the NVR folder. */
 char *
 nvr_path(char *str)

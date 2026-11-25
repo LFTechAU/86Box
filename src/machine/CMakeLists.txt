@@ -17,6 +17,7 @@
 
 add_library(mch OBJECT
     machine.c
+    lftech.c
     machine_table.c
     m_xt.c
     m_xt_t1000.c

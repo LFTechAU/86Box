@@ -165,23 +165,28 @@ machine_get_cpu_mhz(void)
     return (c != NULL) ? (int) (c->rspeed / 1000000) : 0;
 }
 
-/* As the SiS 85C460/461 de-turbo (sis_85c4xx.c): the processor clock
-   control throttle holds the CPU two parts of every three, so it runs at
-   1/3 speed against the timers and the clock, while the front panel Turbo
-   switch is off. The BIOS's Ctrl+Alt+minus/plus is left alone: Turbo is
-   only switched from the front panel. The timer polls, which
-   also picks up the switch from the user interface thread. */
+/* As the SiS 85C460/461 de-turbo (sis_85c4xx.c): while the front panel
+   Turbo switch is off, the processor clock control throttle holds the CPU
+   part of the time, so it runs at the De-Turbo Speed picked in LFTech
+   Features Setup (1/3 unless set) against the timers and the clock. The
+   BIOS's Ctrl+Alt+minus/plus is left alone: Turbo is only switched from
+   the front panel. The timer polls, which also picks up the switch from
+   the user interface thread. */
 static void
 machine_deturbo_timer(void *priv)
 {
     pc_timer_t *timer  = (pc_timer_t *) priv;
-    int         active = !machine_turbo_switch;
-    int         run    = active ? 1 : 0;
+    int         period = 3;
+    int         run    = 0;
 
-    machine_speed_pct = active ? 33 : 100;
+    machine_speed_pct = 100;
+    if (!machine_turbo_switch)
+        machine_speed_pct = lftech_deturbo_throttle(&period, &run);
+    if (run >= period)
+        run = 0;
 
-    if (cpu_throttle_run != run) {
-        cpu_throttle_period = 3;
+    if ((cpu_throttle_run != run) || (run && (cpu_throttle_period != period))) {
+        cpu_throttle_period = period;
         cpu_throttle_break  = 0;
         cpu_throttle_run    = run;
     }
@@ -288,7 +293,7 @@ machine_init(void)
     (void) machine_init_ex(machine);
 
     machine_memcount_armed = 1;
-    if (machine_lftech && cpu_mem_extra_cycles)
+    if (machine_lftech)
         io_sethandler(0x0080, 1, NULL, NULL, NULL, machine_memcount_post, NULL, NULL, NULL);
 }
 

@@ -156,7 +156,6 @@ static const device_config_t ali1429_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 04/04/93 by LFTech"),
     MACHINE_ALI1429_CACHE_CONFIG(0x20),
-    MACHINE_DRAM_EXTRA_CONFIG(5),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -204,8 +203,12 @@ machine_at_ali1429_init(const machine_t *model)
         device_add(&fdc_at_device);
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
-       pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
+       pace of a real board's slower DRAM timing: Extra DRAM Wait in the
+       LFTech BIOS's LFTech Features Setup (the board's default, the most
+       it offers, and the two CMOS bytes the setup page keeps). */
+    cpu_mem_extra_cycles = 0;
+    if (machine_lftech)
+        lftech_setup_add(5, 64, 0x70, 0x71);
     cpu_update_waitstates();
 
     return ret;
@@ -449,33 +452,6 @@ static const device_config_t soyo461_config[] = {
             { .description = ""                    }
         }
     },
-    {
-        .name        = "dram_extra",
-        .description = "Extra DRAM wait with cache off",
-        .type        = CONFIG_SELECTION,
-        .default_int = 5,
-        .selection   = {
-            { .description = "None, chipset datasheet (~36 ms per tick)", .value = 0 },
-            { .description = "+1 clocks (~40 ms per tick on a 33 MHz bus)", .value = 1 },
-            { .description = "+2 clocks (~50 ms per tick on a 33 MHz bus)", .value = 2 },
-            { .description = "+3 clocks (~55 ms per tick on a 33 MHz bus)", .value = 3 },
-            { .description = "+4 clocks (~60 ms per tick on a 33 MHz bus)", .value = 4 },
-            { .description = "+5 clocks (~65 ms per tick on a 33 MHz bus), recommended", .value = 5 },
-            { .description = "+6 clocks (~70 ms per tick on a 33 MHz bus)", .value = 6 },
-            { .description = "+7 clocks (~80 ms per tick on a 33 MHz bus)", .value = 7 },
-            { .description = "+8 clocks (~85 ms per tick on a 33 MHz bus)", .value = 8 },
-            { .description = "+10 clocks (~95 ms per tick on a 33 MHz bus)", .value = 10 },
-            { .description = "+12 clocks (~110 ms per tick on a 33 MHz bus)", .value = 12 },
-            { .description = "+14 clocks (~120 ms per tick on a 33 MHz bus)", .value = 14 },
-            { .description = "+16 clocks (~130 ms per tick on a 33 MHz bus)", .value = 16 },
-            { .description = "+20 clocks (~155 ms per tick on a 33 MHz bus)", .value = 20 },
-            { .description = "+24 clocks (~180 ms per tick on a 33 MHz bus)", .value = 24 },
-            { .description = "+32 clocks (~230 ms per tick on a 33 MHz bus)", .value = 32 },
-            { .description = "+48 clocks (~325 ms per tick on a 33 MHz bus)", .value = 48 },
-            { .description = "+64 clocks (~420 ms per tick on a 33 MHz bus)", .value = 64 },
-            { .description = "" }
-        }
-    },
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -530,8 +506,13 @@ machine_at_soyo461_init(const machine_t *model)
         device_add(&sis_85c461_device);
 
     /* Extra clocks per memory bus cycle while the CPU cache is off, so the
-       POST memory count runs at the speed of a real early 486 board. */
-    cpu_mem_extra_cycles = machine_lftech ? machine_get_config_int("dram_extra") : 0;
+       POST memory count runs at the speed of a real early 486 board: Extra
+       DRAM Wait in the LFTech BIOS's LFTech Features Setup (the board's
+       default, the most it offers, and the two CMOS bytes the setup page
+       keeps). */
+    cpu_mem_extra_cycles = 0;
+    if (machine_lftech)
+        lftech_setup_add(5, 64, 0x70, 0x71);
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);

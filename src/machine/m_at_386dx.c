@@ -315,7 +315,6 @@ static const device_config_t ecs386v_config[] = {
     // clang-format off
     MACHINE_LFTECH_BIOS_CONFIG("AMI 08/08/93 by LFTech"),
     MACHINE_ALI1429_CACHE_CONFIG(0x20),
-    MACHINE_DRAM_EXTRA_386_CONFIG(4),
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -356,8 +355,12 @@ machine_at_ecs386v_init(const machine_t *model)
     device_add_params(&ali1429_device, machine_ali1429_cache_params(machine_get_config_int("cache_size")));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
-       pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_lftech ? MIN(machine_get_config_int("dram_extra"), MACHINE_DRAM_EXTRA_386_MAX) : 0;
+       pace of a real board's slower DRAM timing: Extra DRAM Wait in the
+       LFTech BIOS's LFTech Features Setup (the board's default, the most
+       it offers, and the two CMOS bytes the setup page keeps). */
+    cpu_mem_extra_cycles = 0;
+    if (machine_lftech)
+        lftech_setup_add(4, 8, 0x70, 0x71);
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
@@ -475,24 +478,6 @@ static const device_config_t opti291wb_config[] = {
             { .description = ""                   }
         }
     },
-    {
-        .name        = "dram_extra",
-        .description = "Extra DRAM wait with cache off",
-        .type        = CONFIG_SELECTION,
-        .default_int = 5,
-        .selection   = {
-            { .description = "None, chipset timing", .value = 0 },
-            { .description = "+1 clocks", .value = 1 },
-            { .description = "+2 clocks", .value = 2 },
-            { .description = "+3 clocks", .value = 3 },
-            { .description = "+4 clocks", .value = 4 },
-            { .description = "+5 clocks, recommended", .value = 5 },
-            { .description = "+6 clocks", .value = 6 },
-            { .description = "+7 clocks", .value = 7 },
-            { .description = "+8 clocks", .value = 8 },
-            { .description = "" }
-        }
-    },
     { .name = "", .description = "", .type = CONFIG_END }
     // clang-format on
 };
@@ -554,8 +539,12 @@ machine_at_opti291wb_init(const machine_t *model)
                                           ((machine_get_config_int("cache_size") & 0x03) << 16)));
 
     /* Slows uncached DRAM accesses (such as the POST memory count) to the
-       pace of a real board's slower DRAM timing. */
-    cpu_mem_extra_cycles = machine_lftech ? MIN(machine_get_config_int("dram_extra"), MACHINE_DRAM_EXTRA_386_MAX) : 0;
+       pace of a real board's slower DRAM timing: Extra DRAM Wait in the
+       LFTech BIOS's LFTech Features Setup (the board's default, the most
+       it offers, and the two CMOS bytes the setup page keeps). */
+    cpu_mem_extra_cycles = 0;
+    if (machine_lftech)
+        lftech_setup_add(5, 8, 0x70, 0x71);
     cpu_update_waitstates();
 
     kbc = device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);

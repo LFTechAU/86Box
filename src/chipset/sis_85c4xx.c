@@ -760,12 +760,13 @@ sis_85c401_cache_sizing_update(sis_85c4xx_t *dev)
 
 /* SiS 85C460 datasheet, Turbo Switch: "When the de-turbo function is turned
    on, system performs 1/3 or 2/3 speed". Register 53h bit 0 set means
-   ignore the front panel turbo switch, and register 58h bit 4 picks a hold
-   of 4 us or 8 us out of every 12 us. Register 57h bit 1, the software
-   de-turbo that the AMI BIOS sets on Ctrl+Alt+minus, is left alone: Turbo
-   is only switched from the front panel. The hold is the processor's clock control throttle (STPCLK#
-   modulated, cpu.h), which the CPU loop counts as time passing, so the
-   processor runs 1/3 or 2/3 as fast against the timers and the clock.
+   ignore the front panel turbo switch. Register 58h bit 4 picks 1/3 or 2/3
+   on the real chip; here the LFTech BIOS's De-Turbo Speed setting picks
+   the speed instead (lftech.c). Register 57h bit 1, the software de-turbo
+   that the AMI BIOS sets on Ctrl+Alt+minus, is left alone: Turbo is only
+   switched from the front panel. The hold is the processor's clock control
+   throttle (STPCLK# modulated, cpu.h), which the CPU loop counts as time
+   passing, so the processor runs slower against the timers and the clock.
    The timer polls so that it also picks up the switch, which the user
    interface changes from another thread. */
 static void
@@ -773,12 +774,18 @@ sis_85c46x_deturbo_timer(void *priv)
 {
     sis_85c4xx_t *dev    = (sis_85c4xx_t *) priv;
     int           active = !(dev->regs[0x03] & 0x01) && !machine_turbo_switch;
-    int           run    = active ? ((dev->regs[0x08] & 0x10) ? 1 : 2) : 0;
+    int           period = 3;
+    int           run    = 0;
 
-    machine_speed_pct = active ? ((run == 1) ? 33 : 67) : 100;
+    /* The LFTech BIOS's De-Turbo Speed setting picks the hold instead. */
+    machine_speed_pct = 100;
+    if (active)
+        machine_speed_pct = lftech_deturbo_throttle(&period, &run);
+    if (run >= period)
+        run = 0;
 
-    if (cpu_throttle_run != run) {
-        cpu_throttle_period = 3;
+    if ((cpu_throttle_run != run) || (run && (cpu_throttle_period != period))) {
+        cpu_throttle_period = period;
         cpu_throttle_break  = 0;
         cpu_throttle_run    = run;
     }
