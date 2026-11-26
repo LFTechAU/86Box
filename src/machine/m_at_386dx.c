@@ -404,7 +404,29 @@ static const device_config_t dataexpert386wb_config[] = {
                 .size          = 65536,
                 .files         = { "roms/machines/dataexpert386wb/st0386-wb-ver2-0-618f078c738cb397184464.bin", "" }
             },
+            {
+                .name          = "AMI 05/05/91 by LFTech",
+                .internal_name = "dataexpert386wb_lftech",
+                .bios_type     = BIOS_NORMAL,
+                .files_no      = 1,
+                .local         = 0,
+                .size          = 65536,
+                .files         = { "roms/machines/dataexpert386wb/386-OPTI-386WB-10-lftech.BIN", "" }
+            },
             { .files_no = 0 }
+        }
+    },
+    {
+        .name        = "cache_size",
+        .description = "External cache (LFTech BIOS)",
+        .type        = CONFIG_SELECTION,
+        .default_int = 1,
+        .selection   = {
+            { .description = "32 KB",  .value = 0 },
+            { .description = "64 KB",  .value = 1 },
+            { .description = "128 KB", .value = 2 },
+            { .description = "256 KB", .value = 3 },
+            { .description = ""                   }
         }
     },
     { .name = "", .description = "", .type = CONFIG_END }
@@ -441,9 +463,35 @@ machine_at_dataexpert386wb_init(const machine_t *model)
 
     machine_at_common_init(model);
 
-    device_add(&opti391_device);
+    /* The LFTech extras (Turbo, the front panel, DRAM timing) are only on
+       the LFTech BIOS; the stock BIOSes run the board as 86Box has it. */
+    machine_lftech = !strcmp(device_get_config_bios("bios"), "dataexpert386wb_lftech");
+
+    /* With the LFTech BIOS, the cache size comes from the External cache
+       setting: the BIOS sizes the cache by testing it at POST, which never
+       passes in 86Box, and keeps the result in register 21h bits 3:2
+       (local bit 26; bits 17:16 hold the size). The stock BIOSes see the
+       chipset as 86Box has it. */
+    if (machine_lftech)
+        device_add_params(&opti391_device,
+                          (void *) (uintptr_t) (2 | (1 << 26) | ((machine_get_config_int("cache_size") & 0x03) << 16)));
+    else
+        device_add(&opti391_device);
+
+    /* Slows uncached DRAM accesses (such as the POST memory count) to the
+       pace of a real board's slower DRAM timing: Extra DRAM Wait in the
+       LFTech BIOS's LFTech Features Setup (the board's default, the most
+       it offers, and the two CMOS bytes the setup page keeps). */
+    cpu_mem_extra_cycles = 0;
+    if (machine_lftech)
+        lftech_setup_add(5, 8, 0x70, 0x71);
+    cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
+
+    /* The front panel Turbo switch. */
+    if (machine_lftech)
+        device_add(&machine_deturbo_device);
 
     if (fdc_current[0] == FDC_INTERNAL)
         device_add(&fdc_at_device);

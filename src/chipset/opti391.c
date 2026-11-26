@@ -70,6 +70,12 @@ typedef struct opti391_t {
        pulse. Boards whose BIOS sets it from the CPU clock (0 above 33 MHz,
        then 1 later in POST) would otherwise reset in a loop. */
     uint8_t no_bit0_reset;
+    /* Register 21h bits 3:2 hold the cache size (32, 64, 128 or 256 KB),
+       which the AMI 05/05/91 BIOS finds by testing the cache at POST, a
+       test that 86Box (with no cache model) never passes: with this set,
+       the board's size stands in for what the test would find (bit 26 of
+       local; cache_size_code holds it). */
+    uint8_t cache_size_21;
     uint8_t force_cache_size;
     uint8_t cache_size_code;
     /* Shadow RAM programmed through registers 23h-27h in the 82C291 layout
@@ -269,6 +275,8 @@ opti391_write(uint16_t addr, uint8_t val, void *priv)
                     break;
 
                 case 0x01:
+                    if ((dev->type == 2) && dev->cache_size_21)
+                        val = (val & 0xf3) | ((dev->cache_size_code & 0x03) << 2);
                     dev->regs[dev->index - dev->reg_base] = val;
                     if (dev->type == 2) {
                         cpu_cache_ext_enabled = !!(dev->regs[0x01] & 0x10);
@@ -369,6 +377,7 @@ opti391_init(const device_t *info)
     dev->type             = info->local & 0xff;
     dev->force_cache_size = (info->local >> 24) & 0x01;
     dev->no_bit0_reset    = (info->local >> 25) & 0x01;
+    dev->cache_size_21    = (info->local >> 26) & 0x01;
     dev->cache_size_code  = (info->local >> 16) & 0x03;
     dev->shadow_291       = (info->local >> 27) & 0x01;
 
