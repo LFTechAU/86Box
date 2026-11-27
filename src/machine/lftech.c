@@ -137,6 +137,13 @@ lftech_timer(UNUSED(void *priv))
 static void
 lftech_write(UNUSED(uint16_t port), uint8_t val, UNUSED(void *priv))
 {
+    /* Save and Restart on the setup page: a reset like the Reset button,
+       so the chipset (its cache and DRAM settings) starts over too. */
+    if (val == 'R') {
+        pc_reset_button();
+        return;
+    }
+
     if (val != 'L')
         return;
 

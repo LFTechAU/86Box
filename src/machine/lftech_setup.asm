@@ -288,6 +288,14 @@ restart:
     xor al, al
     out 0x71, al
     cli
+    ; ask the board for a reset like its Reset button (the chipset is
+    ; reset too, so the POST runs as from cold with the drives spinning);
+    ; the keyboard controller reset is the fallback
+    mov dx, 0xee
+    mov al, 'R'
+    out dx, al
+    jmp $+2
+    jmp $+2
 .kbc:
     in al, 0x64
     test al, 2
