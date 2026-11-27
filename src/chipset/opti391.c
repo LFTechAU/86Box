@@ -217,6 +217,18 @@ opti391_shadow_recalc_291(opti391_t *dev)
         }
     }
 
+    /* Register 27h bits 3:0: the 256 KB at A0000h-BFFFFh and D0000h-EFFFFh
+       remapped to this megabyte (0 = off), as the BIOS sets it when the
+       memory ends below 16 MB. */
+    mem_remap_top_ex(0, dev->old_start);
+    dev->old_start = 1024;
+    /* Only at the top of memory: elsewhere it would overlay or float
+       past the installed RAM. */
+    if ((dev->regs[0x07] & 0x0f) && (((dev->regs[0x07] & 0x0f) * 1024) == mem_size)) {
+        dev->old_start = (dev->regs[0x07] & 0x0f) * 1024;
+        mem_remap_top_ex(-256, dev->old_start);
+    }
+
     flushmmucache();
 }
 
