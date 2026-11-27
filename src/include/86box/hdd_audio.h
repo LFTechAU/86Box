@@ -51,6 +51,7 @@ typedef struct {
     int                       poweron_clicks; /* Calibration clicks after spin-up (0 = in the spin-up sample) */
     int                       srst_clicks;    /* Recalibration clicks on a soft reset */
     int                       poweron_hold_ms; /* POST held this long while the drive starts */
+    int                       ready_ms;        /* Spin-up time to ready, when longer than the clip */
     char                      models[512];    /* Drive models (internal names, '*' = prefix) the profile also fits */
 } hdd_audio_profile_config_t;
 

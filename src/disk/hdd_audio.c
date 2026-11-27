@@ -247,6 +247,7 @@ hdd_audio_load_profiles(void)
         config->poweron_clicks = ini_section_get_int(cat, "poweron_clicks", HDD_MECH_POWERON_CLICKS);
         config->srst_clicks    = ini_section_get_int(cat, "srst_clicks", HDD_MECH_SRST_CLICKS);
         config->poweron_hold_ms = ini_section_get_int(cat, "poweron_hold_ms", HDD_MECH_POWERON_HOLD_MS);
+        config->ready_ms        = ini_section_get_int(cat, "ready_ms", 0);
         strncpy(config->models, ini_section_get_string(cat, "models", ""), sizeof(config->models) - 1);
 
         /* Load spindle motor sample files */
@@ -821,6 +822,10 @@ hdd_audio_mech_power_on(hdd_audio_drive_state_t *state, double extra_us)
     spinup_us = 4000000.0;
     if (samples->spindle_start_buffer && (samples->spindle_start_samples > 0))
         spinup_us = (double) samples->spindle_start_samples * 1000000.0 / 48000.0;
+    /* A recording can stop before the drive is ready: the platters keep
+       coming up to speed on the running sound. */
+    if (((double) audio_profiles[state->profile_id].ready_ms * 1000.0) > spinup_us)
+        spinup_us = (double) audio_profiles[state->profile_id].ready_ms * 1000.0;
 
     state->mech_phase = HDD_MECH_SPINUP;
     state->mech_busy  = 1;
