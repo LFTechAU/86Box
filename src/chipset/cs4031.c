@@ -81,6 +81,25 @@ cs4031_write(uint16_t addr, uint8_t val, void *priv)
         case 0x23:
             cs4031_log("CS4031: dev->regs[%02x] = %02x\n", dev->index, val);
             switch (dev->index) {
+                /* 84035 registers: DMA wait states (01h), performance
+                   control (08h), miscellaneous control (09h) and DMA clock
+                   (0Ah). Kept for read-back only. */
+                case 0x01:
+                    dev->regs[dev->index] = val & 0x3f;
+                    break;
+
+                case 0x08:
+                    dev->regs[dev->index] = val;
+                    break;
+
+                case 0x09:
+                    dev->regs[dev->index] = val & 0xf7;
+                    break;
+
+                case 0x0a:
+                    dev->regs[dev->index] = val & 0x8f;
+                    break;
+
                 case 0x05:
                     dev->regs[dev->index] = val & 0x3f;
                     break;
@@ -98,12 +117,13 @@ cs4031_write(uint16_t addr, uint8_t val, void *priv)
                     break;
 
                 case 0x11:
-                    dev->regs[dev->index] = val & 0x8d;
+                    dev->regs[dev->index] = val & 0x8f;
                     break;
 
                 case 0x12:
                 case 0x13:
-                    dev->regs[dev->index] = val & 0x8d;
+                    /* Bits 2:0 and 6:4 are the DRAM types of the two blocks. */
+                    dev->regs[dev->index] = val & 0x77;
                     break;
 
                 case 0x14:
@@ -129,7 +149,7 @@ cs4031_write(uint16_t addr, uint8_t val, void *priv)
                     break;
 
                 case 0x1c:
-                    dev->regs[dev->index] = val & 0xb3;
+                    dev->regs[dev->index] = val & 0xb2;
                     port_92_set_features(dev->port_92, val & 0x10, val & 0x20);
                     break;
 
