@@ -48,6 +48,7 @@ typedef struct {
     hdd_audio_sample_config_t spindlemotor_loop;
     hdd_audio_sample_config_t spindlemotor_stop;
     hdd_audio_sample_config_t seek_track;
+    hdd_audio_sample_config_t seek_stop;      /* Optional: the stop tick of a seek (seek_track is then the start tick) */
     int                       poweron_clicks; /* Calibration clicks after spin-up (0 = in the spin-up sample) */
     int                       srst_clicks;    /* Recalibration clicks on a soft reset */
     int                       poweron_hold_ms; /* POST held this long while the drive starts */

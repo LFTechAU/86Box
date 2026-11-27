@@ -47,6 +47,8 @@ typedef struct {
     int    profile_id;  /* Which profile's seek sound to use */
     float  rate;        /* Playback speed: below 1 is deeper and longer */
     double src_pos;     /* Position in the sample, in source frames */
+    int    delay;       /* Output frames to wait before it sounds */
+    int    stop;        /* Plays the stop tick rather than the seek sound */
 } hdd_seek_voice_t;
 
 /* A little variation from one seek to the next, as no two head movements
@@ -77,6 +79,8 @@ hdd_seek_voice_start(hdd_seek_voice_t *voice, int profile_id, float volume, floa
     voice->profile_id = profile_id;
     voice->volume     = volume * (0.5f + 0.65f * t) * hdd_audio_jitter(0.08f);
     voice->rate       = (1.12f - 0.24f * t) * hdd_audio_jitter(0.03f);
+    voice->delay      = 0;
+    voice->stop       = 0;
 }
 
 /* Per-HDD audio state */
@@ -131,6 +135,9 @@ typedef struct {
     int16_t *seek_buffer;
     int      seek_samples;
     float    seek_volume;
+    int16_t *seek_stop_buffer;
+    int      seek_stop_samples;
+    float    seek_stop_volume;
     int      loaded;
 } hdd_audio_samples_t;
 
@@ -268,6 +275,10 @@ hdd_audio_load_profiles(void)
         strncpy(config->seek_track.filename, file, sizeof(config->seek_track.filename) - 1);
         config->seek_track.volume = (float) ini_section_get_double(cat, "seek_track_volume", 1.0);
 
+        file = ini_section_get_string(cat, "seek_stop_file", "");
+        strncpy(config->seek_stop.filename, file, sizeof(config->seek_stop.filename) - 1);
+        config->seek_stop.volume = (float) ini_section_get_double(cat, "seek_stop_volume", 1.0);
+
         hdd_audio_log("HDD Audio: Loaded profile %d: %s (%s)\n",
                       audio_profile_count, config->name, config->internal_name);
 
@@ -396,6 +407,10 @@ hdd_audio_close(void)
             free(profile_samples[i].seek_buffer);
             profile_samples[i].seek_buffer = NULL;
         }
+        if (profile_samples[i].seek_stop_buffer) {
+            free(profile_samples[i].seek_stop_buffer);
+            profile_samples[i].seek_stop_buffer = NULL;
+        }
         profile_samples[i].loaded = 0;
     }
     
@@ -474,6 +489,13 @@ hdd_audio_load_profile_samples(int profile_id)
         } else {
             hdd_audio_log("HDD Audio: Failed to load seek sound: %s\n", config->seek_track.filename);
         }
+    }
+
+    /* Load the seek stop tick */
+    if (config->seek_stop.filename[0]) {
+        samples->seek_stop_buffer = sound_load_wav(config->seek_stop.filename, &samples->seek_stop_samples);
+        if (samples->seek_stop_buffer)
+            samples->seek_stop_volume = config->seek_stop.volume;
     }
     
     samples->loaded = 1;
@@ -621,6 +643,10 @@ hdd_audio_reset(void)
         if (profile_samples[i].seek_buffer) {
             free(profile_samples[i].seek_buffer);
             profile_samples[i].seek_buffer = NULL;
+        }
+        if (profile_samples[i].seek_stop_buffer) {
+            free(profile_samples[i].seek_stop_buffer);
+            profile_samples[i].seek_stop_buffer = NULL;
         }
         profile_samples[i].loaded = 0;
     }
@@ -1074,6 +1100,45 @@ hdd_audio_seek(hard_disk_t *hdd_drive, uint32_t new_cylinder)
         }
     }
 
+    /* With a stop tick, a seek is heard as two ticks: the actuator
+       kicking off and braking on the target track, the gap between them
+       the seek time (track-to-track up to full stroke). */
+    if (samples->seek_stop_buffer && (samples->seek_stop_samples > 1)) {
+        int   va = -1, vb = -1;
+        float travel = (hdd_drive->phy_cyl > 0) ? ((float) cylinder_diff / (float) hdd_drive->phy_cyl) : 0.5f;
+        if (travel > 1.0f)
+            travel = 1.0f;
+        for (int v = 0; v < HDD_MAX_SEEK_VOICES_PER_HDD; v++) {
+            if (!drive_state->seek_voices[v].active) {
+                if (va < 0)
+                    va = v;
+                else if (vb < 0)
+                    vb = v;
+            }
+        }
+        if (vb >= 0) {
+            double t2   = hdd_drive->cyl_switch_usec;
+            double full = hdd_drive->full_stroke_usec;
+            double gap;
+            if (t2 < 2000.0)
+                t2 = 2000.0;
+            if (full < t2)
+                full = t2;
+            gap = (t2 + (full - t2) * sqrt((double) travel)) * hdd_audio_jitter(0.06f);
+            hdd_seek_voice_start(&drive_state->seek_voices[va], profile_id, samples->seek_volume, travel);
+            hdd_seek_voice_start(&drive_state->seek_voices[vb], profile_id, samples->seek_stop_volume, travel);
+            /* Both ticks keep their recorded pitch and nearly their level. */
+            drive_state->seek_voices[va].rate   = hdd_audio_jitter(0.02f);
+            drive_state->seek_voices[vb].rate   = hdd_audio_jitter(0.02f);
+            drive_state->seek_voices[va].volume = samples->seek_volume * (0.85f + 0.25f * sqrtf(travel)) * hdd_audio_jitter(0.08f);
+            drive_state->seek_voices[vb].volume = samples->seek_stop_volume * (0.85f + 0.25f * sqrtf(travel)) * hdd_audio_jitter(0.08f);
+            drive_state->seek_voices[vb].stop   = 1;
+            drive_state->seek_voices[vb].delay  = (int) (gap * 48000.0 / 1000000.0);
+        }
+        thread_release_mutex(hdd_audio_mutex);
+        return;
+    }
+
     /* Find a free seek voice for this drive */
     for (int v = 0; v < HDD_MAX_SEEK_VOICES_PER_HDD; v++) {
         if (!drive_state->seek_voices[v].active) {
@@ -1272,22 +1337,32 @@ hdd_audio_mix_seek_float(hdd_audio_drive_state_t *state, float *float_buffer, in
 
         int seek_profile_id = state->seek_voices[v].profile_id;
         hdd_audio_samples_t *seek_samples = &profile_samples[seek_profile_id];
-        if (!seek_samples->seek_buffer || seek_samples->seek_samples == 0)
+        const int16_t       *sbuf = state->seek_voices[v].stop ? seek_samples->seek_stop_buffer : seek_samples->seek_buffer;
+        const int            slen = state->seek_voices[v].stop ? seek_samples->seek_stop_samples : seek_samples->seek_samples;
+        int                  i0   = 0;
+        if (!sbuf || slen <= 1)
             continue;
+        /* A stop tick waits out the seek before it sounds. */
+        if (state->seek_voices[v].delay > 0) {
+            i0 = (state->seek_voices[v].delay < frames_in_buffer) ? state->seek_voices[v].delay : frames_in_buffer;
+            state->seek_voices[v].delay -= i0;
+            if (state->seek_voices[v].delay > 0)
+                continue;
+        }
 
         float  voice_vol = state->seek_voices[v].volume;
         double rate      = (state->seek_voices[v].rate > 0.0f) ? state->seek_voices[v].rate : 1.0;
         double src       = state->seek_voices[v].src_pos;
         int    out       = state->seek_voices[v].position;
-        const int last   = seek_samples->seek_samples - 1;
+        const int last   = slen - 1;
 
-        for (int i = 0; (i < frames_in_buffer) && (src < last); i++, out++, src += rate) {
+        for (int i = i0; (i < frames_in_buffer) && (src < last); i++, out++, src += rate) {
             const int   p  = (int) src;
             const float fr = (float) (src - p);
-            float seek_left  = ((float) seek_samples->seek_buffer[p * 2] * (1.0f - fr) +
-                                (float) seek_samples->seek_buffer[p * 2 + 2] * fr) / 131072.0f * voice_vol;
-            float seek_right = ((float) seek_samples->seek_buffer[p * 2 + 1] * (1.0f - fr) +
-                                (float) seek_samples->seek_buffer[p * 2 + 3] * fr) / 131072.0f * voice_vol;
+            float seek_left  = ((float) sbuf[p * 2] * (1.0f - fr) +
+                                (float) sbuf[p * 2 + 2] * fr) / 131072.0f * voice_vol;
+            float seek_right = ((float) sbuf[p * 2 + 1] * (1.0f - fr) +
+                                (float) sbuf[p * 2 + 3] * fr) / 131072.0f * voice_vol;
 
             float_buffer[i * 2]     += seek_left;
             float_buffer[i * 2 + 1] += seek_right;
@@ -1400,22 +1475,32 @@ hdd_audio_mix_seek_int16(hdd_audio_drive_state_t *state, int16_t *buffer, int fr
 
         int seek_profile_id = state->seek_voices[v].profile_id;
         hdd_audio_samples_t *seek_samples = &profile_samples[seek_profile_id];
-        if (!seek_samples->seek_buffer || seek_samples->seek_samples == 0)
+        const int16_t       *sbuf = state->seek_voices[v].stop ? seek_samples->seek_stop_buffer : seek_samples->seek_buffer;
+        const int            slen = state->seek_voices[v].stop ? seek_samples->seek_stop_samples : seek_samples->seek_samples;
+        int                  i0   = 0;
+        if (!sbuf || slen <= 1)
             continue;
+        /* A stop tick waits out the seek before it sounds. */
+        if (state->seek_voices[v].delay > 0) {
+            i0 = (state->seek_voices[v].delay < frames_in_buffer) ? state->seek_voices[v].delay : frames_in_buffer;
+            state->seek_voices[v].delay -= i0;
+            if (state->seek_voices[v].delay > 0)
+                continue;
+        }
 
         float  voice_vol = state->seek_voices[v].volume;
         double rate      = (state->seek_voices[v].rate > 0.0f) ? state->seek_voices[v].rate : 1.0;
         double src       = state->seek_voices[v].src_pos;
         int    out       = state->seek_voices[v].position;
-        const int last   = seek_samples->seek_samples - 1;
+        const int last   = slen - 1;
 
-        for (int i = 0; (i < frames_in_buffer) && (src < last); i++, out++, src += rate) {
+        for (int i = i0; (i < frames_in_buffer) && (src < last); i++, out++, src += rate) {
             const int   p  = (int) src;
             const float fr = (float) (src - p);
-            int32_t left  = buffer[i * 2] + (int32_t) (((float) seek_samples->seek_buffer[p * 2] * (1.0f - fr) +
-                                                        (float) seek_samples->seek_buffer[p * 2 + 2] * fr) * voice_vol);
-            int32_t right = buffer[i * 2 + 1] + (int32_t) (((float) seek_samples->seek_buffer[p * 2 + 1] * (1.0f - fr) +
-                                                            (float) seek_samples->seek_buffer[p * 2 + 3] * fr) * voice_vol);
+            int32_t left  = buffer[i * 2] + (int32_t) (((float) sbuf[p * 2] * (1.0f - fr) +
+                                                        (float) sbuf[p * 2 + 2] * fr) * voice_vol);
+            int32_t right = buffer[i * 2 + 1] + (int32_t) (((float) sbuf[p * 2 + 1] * (1.0f - fr) +
+                                                            (float) sbuf[p * 2 + 3] * fr) * voice_vol);
 
             if (left > 32767) left = 32767;
             if (left < -32768) left = -32768;
