@@ -224,7 +224,7 @@ machine_at_greenb_init(const machine_t *model)
        it offers, and the two CMOS bytes the setup page keeps). */
     cpu_mem_extra_cycles = 0;
     if (machine_lftech)
-        lftech_setup_add(3, 64, 0x70, 0x71);
+        lftech_setup_add(4, 64, 0x70, 0x71);
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
@@ -611,7 +611,7 @@ machine_at_vli486sv2g_init(const machine_t *model)
        it offers, and the two CMOS bytes the setup page keeps). */
     cpu_mem_extra_cycles = 0;
     if (machine_lftech)
-        lftech_setup_add(3, 64, 0x7c, 0x7f);
+        lftech_setup_add(4, 64, 0x7c, 0x7f);
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
