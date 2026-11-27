@@ -3420,15 +3420,16 @@ const cpu_family_t cpu_families[] = {
                 .cache_write_cycles = 12,
                 .atclk_div          = 16
             },
-            { /*The rare P75+ was indeed a triple-clocked 150 MHz according to research*/
+            { /*The rare P75+ was indeed a triple-clocked 150 MHz according to research.
+                  It is the same 5x86 core, so it identifies as one (04Ex), not as a DX4.*/
                 .name               = "150 (P75+)",
                 .cpu_type           = CPU_ENH_Am486DX,
                 .fpus               = fpus_internal,
                 .rspeed             = 150000000,
                 .multi              = 3.0,
                 .voltage            = 3450,
-                .edx_reset          = 0x482,
-                .cpuid_model        = 0x482,
+                .edx_reset          = 0x4e0,
+                .cpuid_model        = 0x4e0,
                 .cyrix_id           = 0,
                 .cpu_flags          = CPU_SUPPORTS_DYNAREC,
                 .mem_read_cycles    = 28,

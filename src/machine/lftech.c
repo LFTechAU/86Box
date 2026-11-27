@@ -66,15 +66,27 @@ static struct {
     pc_timer_t timer;
 } lft;
 
-/* DRAM chips take the same time whatever the bus speed, so the wait in bus
-   clocks grows with the bus: the board's own 33 MHz value (which matches a
-   real DX-33's memory count), scaled to this CPU's bus. */
+/* Auto: the wait that makes an uncached memory access take as long as on
+   a DX-33 with the board's own 33 MHz value (which matches a real DX-33's
+   memory count), so the count ticks at the same pace whatever the CPU.
+
+   An access costs the CPU's own DRAM timing plus the wait, which is in bus
+   clocks (multiplier CPU clocks each). On a 486 that timing is the CPU
+   table's memory read time; a 386-class core (Blue Lightning, IBM SLC,
+   Cyrix DLC) hides it under the instruction's own time, which comes to
+   about 6.5 CPU clocks in the memory count (measured on the SOYO). */
 static int
 dram_auto(void)
 {
-    double mhz    = cpu_busspeed / 1000000.0;
-    int    clocks = (int) (lft.dram_33 * mhz / 33.333 + 0.5);
+    const CPU *c      = &cpu_f->cpus[cpu_effective];
+    double     mhz    = c->rspeed / 1000000.0;
+    double     multi  = (c->multi > 1.0) ? c->multi : 1.0;
+    double     target = (6.0 + lft.dram_33) * mhz / 33.333;
+    double     base   = is486 ? c->mem_read_cycles : 6.5;
+    int        clocks = (int) ((target - base) / multi + 0.5);
 
+    if (clocks < 0)
+        clocks = 0;
     if (clocks > dram_tab[lft.dram_max])
         clocks = dram_tab[lft.dram_max];
     return clocks;
@@ -214,8 +226,8 @@ static const device_t lftech_setup_device = {
 };
 
 /* Called by an LFTech board with its LFTech BIOS: dram_def is the board's
-   extra DRAM wait in clocks for a 33 MHz bus (Auto scales it to the CPU's
-   bus; a machine setting from before the setup page is taken over instead),
+   extra DRAM wait in clocks on a DX-33 (Auto works out the wait that gives
+   the same memory speed on this CPU; a machine setting from before the setup page is taken over instead),
    dram_max the most it offers, and cmos_a/cmos_b the two CMOS bytes its
    BIOS leaves free. */
 void
