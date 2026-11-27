@@ -106,7 +106,7 @@ machine_at_pat45pv_init(const machine_t *model)
        board's 33 MHz value, the most it offers, the two CMOS bytes). */
     cpu_mem_extra_cycles = 0;
     if (machine_lftech)
-        lftech_setup_add(5, 64, 0x70, 0x71);
+        lftech_setup_add(3, 64, 0x70, 0x71);
     cpu_update_waitstates();
 
     device_add_params(machine_get_kbc_device(machine), (void *) model->kbc_params);
